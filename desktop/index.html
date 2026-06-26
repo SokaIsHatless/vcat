@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cat Overlord</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    #backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    #backdrop.open {
+      display: block;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    #speech-bubble {
+      display: none;
+      position: relative;
+      max-width: 260px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 2px solid #333;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      pointer-events: none;
+      -webkit-app-region: no-drag;
+    }
+
+    #speech-bubble.visible {
+      display: block;
+    }
+
+    #speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 10px 10px 0;
+      border-style: solid;
+      border-color: #333 transparent transparent transparent;
+    }
+
+    #speech-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: rgba(255, 255, 255, 0.97) transparent transparent transparent;
+      z-index: 1;
+    }
+
+    #bubble-user-text {
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      color: #555;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+
+    #bubble-user-text::before {
+      content: 'You: ';
+      font-weight: 600;
+      color: #333;
+    }
+
+    #bubble-reply {
+      font-size: 14px;
+      font-family: system-ui, sans-serif;
+      color: #111;
+      word-break: break-word;
+    }
+
+    #command-panel {
+      display: none;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #333;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    #command-panel.open {
+      display: flex;
+    }
+
+    #command-input {
+      width: 180px;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: system-ui, sans-serif;
+      outline: none;
+      -webkit-app-region: no-drag;
+    }
+
+    #command-input:focus {
+      border-color: #666;
+    }
+
+    #send-btn {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    #send-btn:hover {
+      background: #555;
+    }
+
+    #cat {
+      width: 280px;
+      height: auto;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    #cat.dragging {
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body>
+  <div id="backdrop"></div>
+
+  <div id="app">
+    <div id="speech-bubble">
+      <p id="bubble-user-text"></p>
+      <p id="bubble-reply"></p>
+    </div>
+
+    <div id="command-panel">
+      <input
+        type="text"
+        id="command-input"
+        placeholder="Command your overlord..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button type="button" id="send-btn">Send</button>
+    </div>
+
+    <img id="cat" src="cat.png" alt="Cat Overlord" draggable="false">
+  </div>
+
+  <script>
+    const PLACEHOLDER_REPLY = "I'll handle that, human. 😼";
+    const BUBBLE_HIDE_MS = 4000;
+
+    const cat = document.getElementById('cat');
+    const backdrop = document.getElementById('backdrop');
+    const speechBubble = document.getElementById('speech-bubble');
+    const bubbleUserText = document.getElementById('bubble-user-text');
+    const bubbleReply = document.getElementById('bubble-reply');
+    const commandPanel = document.getElementById('command-panel');
+    const commandInput = document.getElementById('command-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    let commandOpen = false;
+    let bubbleVisible = false;
+    let bubbleHideTimer = null;
+    let catPointerDown = false;
+    let catDragging = false;
+    let catDragStart = { x: 0, y: 0 };
+    const DRAG_THRESHOLD = 5;
+
+    function openCommandPanel() {
+      commandOpen = true;
+      backdrop.classList.add('open');
+      commandPanel.classList.add('open');
+      commandInput.focus();
+    }
+
+    function closeCommandPanel() {
+      commandOpen = false;
+      backdrop.classList.remove('open');
+      commandPanel.classList.remove('open');
+      commandInput.value = '';
+    }
+
+    function clearBubbleTimer() {
+      if (bubbleHideTimer !== null) {
+        clearTimeout(bubbleHideTimer);
+        bubbleHideTimer = null;
+      }
+    }
+
+    function hideSpeechBubble() {
+      clearBubbleTimer();
+      bubbleVisible = false;
+      speechBubble.classList.remove('visible');
+      bubbleUserText.textContent = '';
+      bubbleReply.textContent = '';
+    }
+
+    function showSpeechBubble(userText) {
+      clearBubbleTimer();
+      bubbleUserText.textContent = userText;
+      bubbleReply.textContent = PLACEHOLDER_REPLY;
+      speechBubble.classList.add('visible');
+      bubbleVisible = true;
+
+      bubbleHideTimer = setTimeout(() => {
+        hideSpeechBubble();
+      }, BUBBLE_HIDE_MS);
+    }
+
+    function submitCommand() {
+      const text = commandInput.value.trim();
+      if (!text) return;
+
+      closeCommandPanel();
+      showSpeechBubble(text);
+    }
+
+    cat.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+
+      catPointerDown = true;
+      catDragging = false;
+      catDragStart = { x: event.screenX, y: event.screenY };
+    });
+
+    window.addEventListener('mousemove', (event) => {
+      if (!catPointerDown) return;
+
+      const dx = event.screenX - catDragStart.x;
+      const dy = event.screenY - catDragStart.y;
+
+      if (!catDragging) {
+        if (Math.abs(dx) <= DRAG_THRESHOLD && Math.abs(dy) <= DRAG_THRESHOLD) {
+          return;
+        }
+        catDragging = true;
+        cat.classList.add('dragging');
+      }
+
+      window.catWindow.moveBy(dx, dy);
+      catDragStart = { x: event.screenX, y: event.screenY };
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!catPointerDown) return;
+
+      if (!catDragging && !commandOpen) {
+        openCommandPanel();
+      }
+
+      catPointerDown = false;
+      catDragging = false;
+      cat.classList.remove('dragging');
+    });
+
+    backdrop.addEventListener('click', (event) => {
+      if (event.target !== backdrop) return;
+      closeCommandPanel();
+    });
+
+    commandPanel.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+
+      if (commandOpen) {
+        closeCommandPanel();
+        return;
+      }
+
+      if (bubbleVisible) {
+        hideSpeechBubble();
+      }
+    });
+
+    sendBtn.addEventListener('click', () => {
+      submitCommand();
+    });
+
+    commandInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitCommand();
+      }
+    });
+  </script>
+</body>
+</html>
