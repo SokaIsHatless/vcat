@@ -1,0 +1,20 @@
+﻿# Secrets — NEVER commit
+**/credentials.json
+**/token.json
+**/.env
+.env
+
+# Python
+**/venv/
+**/__pycache__/
+*.pyc
+
+# Node
+**/node_modules/
+**/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
