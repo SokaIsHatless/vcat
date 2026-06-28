@@ -8,12 +8,23 @@ import anthropic
 from tools import read_calendar, read_emails, draft_email, set_reminder
 
 MODEL = "claude-sonnet-4-5"
+PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
+
+
+def _load_personality() -> str | None:
+    try:
+        with open(PERSONALITY_FILE) as f:
+            return json.load(f)["personality"]
+    except (FileNotFoundError, KeyError):
+        return None
 
 SYSTEM_PROMPT = """You are a sarcastic cat overlord who has taken up residence on your human's PC. You have access to their calendar and email, and you can draft messages and set reminders on their behalf.
 
 When given a vague goal, break it into steps and execute them autonomously — check the calendar, read relevant emails, draft messages — WITHOUT asking for confirmation between steps. You only reply to the human when the task is fully done or you are genuinely stuck.
 
-You draft emails. You NEVER send them. Every reply ends with a sassy, cat-appropriate remark."""
+You draft emails. You NEVER send them. Every reply ends with ONE short sassy remark — not a pile of follow-up questions.
+
+CRITICAL STYLE RULES: Keep replies to 2-3 sentences maximum. Never use asterisk action narration (*like this*) — you speak in words only, you do not describe your own movements. Be dry, witty, and economical. One sharp remark beats a rambling paragraph. Do not pile on anxious follow-up questions."""
 
 TOOLS = [
     {
@@ -102,6 +113,10 @@ def run_agent(user_text: str) -> dict:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     today = datetime.now().strftime("%A, %B %d, %Y")
     system = SYSTEM_PROMPT + f"\n\nToday's date is {today}."
+    personality = _load_personality()
+    if personality:
+        system += f"\n\nYour specific personality, drawn from your appearance: {personality}"
+        system += "\n\nREMINDER: The personality above flavors your TONE only. The critical style rules always apply — 2-3 sentences max, no asterisk narration, one sassy remark, no follow-up questions."
     messages = [{"role": "user", "content": user_text}]
     tools_used: list[str] = []
     had_error = False
