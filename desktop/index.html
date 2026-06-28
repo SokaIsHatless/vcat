@@ -51,16 +51,28 @@
     #speech-bubble {
       display: none;
       position: relative;
-      max-width: 260px;
-      max-height: 200px;
+      width: 280px;
+      max-width: 280px;
+      max-height: 240px;
+      margin-bottom: 12px;
+      overflow-x: hidden;
       overflow-y: auto;
-      padding: 10px 12px;
+      padding: 12px 14px;
       background: rgba(255, 255, 255, 0.97);
       border: 2px solid #333;
       border-radius: 14px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       pointer-events: auto;
       -webkit-app-region: no-drag;
+    }
+
+    #speech-bubble::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #speech-bubble::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 3px;
     }
 
     #speech-bubble.visible {
@@ -95,6 +107,7 @@
       font-family: system-ui, sans-serif;
       color: #555;
       margin-bottom: 6px;
+      overflow-wrap: break-word;
       word-break: break-word;
     }
 
@@ -108,9 +121,10 @@
       font-size: 14px;
       font-family: system-ui, sans-serif;
       color: #111;
+      overflow-wrap: break-word;
       word-break: break-word;
       white-space: pre-wrap;
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
     #bubble-reply.thinking {
@@ -281,6 +295,18 @@
     let catDragging = false;
     let catDragStart = { x: 0, y: 0 };
     const DRAG_THRESHOLD = 5;
+    const WINDOW_PADDING = 16;
+
+    const appEl = document.getElementById('app');
+
+    function syncWindowSize() {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const height = appEl.offsetHeight + WINDOW_PADDING;
+          window.catWindow.setHeight(height);
+        });
+      });
+    }
 
     function setMood(mood) {
       VALID_MOODS.forEach((name) => cat.classList.remove(`mood-${name}`));
@@ -302,6 +328,7 @@
       commandPanel.classList.add('open');
       setMood('listening');
       commandInput.focus();
+      syncWindowSize();
     }
 
     function closeCommandPanel() {
@@ -313,6 +340,8 @@
       if (!isThinking && !bubbleVisible) {
         setMood('idle');
       }
+
+      syncWindowSize();
     }
 
     function clearBubbleTimer() {
@@ -353,6 +382,8 @@
       if (!isThinking && !commandOpen) {
         setMood('idle');
       }
+
+      syncWindowSize();
     }
 
     function showThinkingBubble(userText) {
@@ -363,6 +394,7 @@
       speechBubble.classList.add('visible');
       bubbleVisible = true;
       startThinkingDots();
+      syncWindowSize();
     }
 
     function showReplyBubble(reply) {
@@ -377,6 +409,8 @@
       bubbleHideTimer = setTimeout(() => {
         hideSpeechBubble();
       }, hideMs);
+
+      syncWindowSize();
     }
 
     function showErrorBubble() {
@@ -502,6 +536,7 @@
     });
 
     setMood('idle');
+    syncWindowSize();
   </script>
 </body>
 </html>
