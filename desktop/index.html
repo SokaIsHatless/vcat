@@ -386,6 +386,14 @@
     </div>
   </div>
 
+  <script type="importmap">
+    {
+      "imports": {
+        "onnxruntime-web": "./node_modules/onnxruntime-web/dist/ort.bundle.min.mjs",
+        "onnxruntime-web/webgpu": "./node_modules/onnxruntime-web/dist/ort.webgpu.bundle.min.mjs"
+      }
+    }
+  </script>
   <script type="module" src="cat-photo.mjs"></script>
   <script>
     const API_URL = 'http://localhost:8000/command';
