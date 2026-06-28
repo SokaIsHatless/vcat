@@ -13,5 +13,9 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^42.5.0"
+  },
+  "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
+    "onnxruntime-web": "^1.21.0"
   }
 }
