@@ -52,12 +52,14 @@
       display: none;
       position: relative;
       max-width: 260px;
+      max-height: 200px;
+      overflow-y: auto;
       padding: 10px 12px;
       background: rgba(255, 255, 255, 0.97);
       border: 2px solid #333;
       border-radius: 14px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      pointer-events: none;
+      pointer-events: auto;
       -webkit-app-region: no-drag;
     }
 
@@ -107,6 +109,65 @@
       font-family: system-ui, sans-serif;
       color: #111;
       word-break: break-word;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+
+    #bubble-reply.thinking {
+      color: #666;
+      font-style: italic;
+    }
+
+    #send-btn:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
+    #cat {
+      width: 280px;
+      height: auto;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+      user-select: none;
+      cursor: pointer;
+      transition: filter 0.3s ease, transform 0.3s ease;
+    }
+
+    #cat.mood-thinking {
+      animation: cat-thinking 1.2s ease-in-out infinite;
+    }
+
+    #cat.mood-happy {
+      transform: scale(1.03);
+    }
+
+    #cat.mood-confused {
+      filter: hue-rotate(25deg) saturate(0.85);
+    }
+
+    #cat.mood-sleepy {
+      filter: brightness(0.88) saturate(0.75);
+      transform: scale(0.98);
+    }
+
+    #cat.mood-listening {
+      transform: scale(1.02);
+    }
+
+    #cat.mood-drafting_email,
+    #cat.mood-checking_calendar {
+      animation: cat-working 0.8s ease-in-out infinite alternate;
+    }
+
+    @keyframes cat-thinking {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-3deg) scale(1.02); }
+      75% { transform: rotate(3deg) scale(1.02); }
+    }
+
+    @keyframes cat-working {
+      from { transform: translateY(0); }
+      to { transform: translateY(-4px); }
     }
 
     #command-panel {
@@ -154,17 +215,8 @@
       -webkit-app-region: no-drag;
     }
 
-    #send-btn:hover {
+    #send-btn:hover:not(:disabled) {
       background: #555;
-    }
-
-    #cat {
-      width: 280px;
-      height: auto;
-      pointer-events: auto;
-      -webkit-app-region: no-drag;
-      user-select: none;
-      cursor: pointer;
     }
 
     #cat.dragging {
@@ -196,8 +248,19 @@
   </div>
 
   <script>
-    const PLACEHOLDER_REPLY = "I'll handle that, human. 😼";
-    const BUBBLE_HIDE_MS = 4000;
+    const API_URL = 'http://localhost:8000/command';
+    const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
+    const BUBBLE_HIDE_MS = 6000;
+    const VALID_MOODS = [
+      'idle',
+      'listening',
+      'thinking',
+      'happy',
+      'confused',
+      'sleepy',
+      'drafting_email',
+      'checking_calendar',
+    ];
 
     const cat = document.getElementById('cat');
     const backdrop = document.getElementById('backdrop');
@@ -210,16 +273,34 @@
 
     let commandOpen = false;
     let bubbleVisible = false;
+    let isThinking = false;
     let bubbleHideTimer = null;
+    let thinkingDotsTimer = null;
+    let activeRequestId = 0;
     let catPointerDown = false;
     let catDragging = false;
     let catDragStart = { x: 0, y: 0 };
     const DRAG_THRESHOLD = 5;
 
+    function setMood(mood) {
+      VALID_MOODS.forEach((name) => cat.classList.remove(`mood-${name}`));
+      const safeMood = VALID_MOODS.includes(mood) ? mood : 'idle';
+      cat.classList.add(`mood-${safeMood}`);
+    }
+
+    function setSubmitting(submitting) {
+      isThinking = submitting;
+      sendBtn.disabled = submitting;
+      commandInput.disabled = submitting;
+    }
+
     function openCommandPanel() {
+      if (isThinking) return;
+
       commandOpen = true;
       backdrop.classList.add('open');
       commandPanel.classList.add('open');
+      setMood('listening');
       commandInput.focus();
     }
 
@@ -228,6 +309,10 @@
       backdrop.classList.remove('open');
       commandPanel.classList.remove('open');
       commandInput.value = '';
+
+      if (!isThinking && !bubbleVisible) {
+        setMood('idle');
+      }
     }
 
     function clearBubbleTimer() {
@@ -237,32 +322,112 @@
       }
     }
 
+    function stopThinkingDots() {
+      if (thinkingDotsTimer !== null) {
+        clearInterval(thinkingDotsTimer);
+        thinkingDotsTimer = null;
+      }
+      bubbleReply.classList.remove('thinking');
+    }
+
+    function startThinkingDots() {
+      stopThinkingDots();
+      bubbleReply.classList.add('thinking');
+      let dots = 0;
+      bubbleReply.textContent = 'Thinking';
+      thinkingDotsTimer = setInterval(() => {
+        dots = (dots + 1) % 3;
+        bubbleReply.textContent = `Thinking${'.'.repeat(dots + 1)}`;
+      }, 400);
+    }
+
     function hideSpeechBubble() {
       clearBubbleTimer();
+      stopThinkingDots();
       bubbleVisible = false;
       speechBubble.classList.remove('visible');
       bubbleUserText.textContent = '';
+      bubbleUserText.style.display = '';
       bubbleReply.textContent = '';
+
+      if (!isThinking && !commandOpen) {
+        setMood('idle');
+      }
     }
 
-    function showSpeechBubble(userText) {
+    function showThinkingBubble(userText) {
       clearBubbleTimer();
+      stopThinkingDots();
+      bubbleUserText.style.display = 'block';
       bubbleUserText.textContent = userText;
-      bubbleReply.textContent = PLACEHOLDER_REPLY;
+      speechBubble.classList.add('visible');
+      bubbleVisible = true;
+      startThinkingDots();
+    }
+
+    function showReplyBubble(reply) {
+      clearBubbleTimer();
+      stopThinkingDots();
+      bubbleUserText.style.display = 'none';
+      bubbleReply.textContent = reply;
       speechBubble.classList.add('visible');
       bubbleVisible = true;
 
+      const hideMs = Math.min(Math.max(BUBBLE_HIDE_MS, reply.length * 60), 15000);
       bubbleHideTimer = setTimeout(() => {
         hideSpeechBubble();
-      }, BUBBLE_HIDE_MS);
+      }, hideMs);
     }
 
-    function submitCommand() {
+    function showErrorBubble() {
+      showReplyBubble(ERROR_MESSAGE);
+    }
+
+    async function sendCommand(text) {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async function submitCommand() {
       const text = commandInput.value.trim();
-      if (!text) return;
+      if (!text || isThinking) return;
 
       closeCommandPanel();
-      showSpeechBubble(text);
+      setSubmitting(true);
+      setMood('thinking');
+      showThinkingBubble(text);
+
+      const requestId = ++activeRequestId;
+
+      try {
+        const data = await sendCommand(text);
+        console.log('Backend response:', data);
+
+        if (requestId !== activeRequestId) return;
+
+        setMood(data.mood || 'happy');
+        showReplyBubble(data.reply || '...');
+      } catch (error) {
+        console.error('Backend error:', error);
+
+        if (requestId !== activeRequestId) return;
+
+        setMood('confused');
+        showErrorBubble();
+      } finally {
+        if (requestId === activeRequestId) {
+          setSubmitting(false);
+        }
+      }
     }
 
     cat.addEventListener('mousedown', (event) => {
@@ -294,7 +459,7 @@
     window.addEventListener('mouseup', () => {
       if (!catPointerDown) return;
 
-      if (!catDragging && !commandOpen) {
+      if (!catDragging && !commandOpen && !isThinking) {
         openCommandPanel();
       }
 
@@ -320,7 +485,7 @@
         return;
       }
 
-      if (bubbleVisible) {
+      if (bubbleVisible && !isThinking) {
         hideSpeechBubble();
       }
     });
@@ -335,6 +500,8 @@
         submitCommand();
       }
     });
+
+    setMood('idle');
   </script>
 </body>
 </html>
