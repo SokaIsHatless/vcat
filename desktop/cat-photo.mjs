@@ -1,4 +1,4 @@
-import imglyRemoveBackground from './node_modules/@imgly/background-removal/dist/index.mjs';
+import { removeBackground } from './node_modules/@imgly/background-removal/dist/index.mjs';
 
 const UPLOAD_URL = 'http://localhost:8000/upload_cat';
 
@@ -18,7 +18,7 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   const previewUrl = URL.createObjectURL(file);
 
   try {
-    const cutoutBlob = await imglyRemoveBackground(previewUrl);
+    const cutoutBlob = await removeBackground(previewUrl);
     if (catObjectUrl) {
       URL.revokeObjectURL(catObjectUrl);
     }
