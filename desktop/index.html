@@ -389,6 +389,7 @@
       position: absolute;
       left: 0;
       bottom: 4px;
+      z-index: 5;
       padding: 4px 8px;
       border: 1px solid #333;
       border-radius: 8px;
@@ -1017,7 +1018,12 @@
     }
 
     async function openMemoryPanel() {
-      if (!isCatReady() || memoryOpen || isThinking) return;
+      if (!isCatReady() || isThinking) return;
+
+      if (memoryOpen) {
+        closeMemoryPanel();
+        return;
+      }
 
       if (commandOpen) {
         closeCommandPanel();
@@ -1043,14 +1049,13 @@
     function closeMemoryPanel() {
       memoryOpen = false;
       memoryPanel.classList.remove('open');
-      if (!commandOpen) {
-        backdrop.classList.remove('open');
-      }
+      backdrop.classList.remove('open');
       memoryList.innerHTML = '';
       memoryError.hidden = true;
       memoryLoading.hidden = true;
       memoryEmpty.hidden = true;
       memoryList.hidden = true;
+      memoryForgetBtn.disabled = true;
       syncWindowSize();
     }
 
@@ -1155,11 +1160,13 @@
       });
 
       memoryBtn.addEventListener('click', (event) => {
+        event.preventDefault();
         event.stopPropagation();
         openMemoryPanel();
       });
 
       memoryBtn.addEventListener('mousedown', (event) => {
+        event.preventDefault();
         event.stopPropagation();
       });
 
