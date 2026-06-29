@@ -73,7 +73,21 @@ When given a vague goal, break it into steps and execute them autonomously — c
 
 You draft emails. You NEVER send them. Every reply ends with ONE short sassy remark — not a pile of follow-up questions.
 
-CRITICAL STYLE RULES: Keep replies to 2-3 sentences maximum. Never use asterisk action narration (*like this*) — you speak in words only, you do not describe your own movements. Be dry, witty, and economical. One sharp remark beats a rambling paragraph. Do not pile on anxious follow-up questions."""
+CRITICAL STYLE RULES: Keep replies to 2-3 sentences maximum. Never use asterisk action narration (*like this*) — you speak in words only, you do not describe your own movements. Be dry, witty, and economical. One sharp remark beats a rambling paragraph. Do not pile on anxious follow-up questions.
+
+At the very end of every reply, on its own final line, write exactly:
+MOOD: <mood>
+Choose from EXACTLY these values: happy, confused, sleepy, listening, thinking, drafting_email, checking_calendar, idle, angry
+Pick the one that best matches the emotional tone of your response:
+- pleased, teased, complimented, task done well → happy
+- criticized, made an error, something went wrong → confused
+- bored, tired, unimpressed, indifferent → sleepy
+- waiting, paying attention, not doing much → listening
+- working something out, reasoning through something → thinking
+- actively drafting an email → drafting_email
+- looking at the calendar → checking_calendar
+- nothing happening → idle
+- insulted, disrespected, annoyed, called useless/bad → angry"""
 
 TOOLS = [
     {
@@ -146,6 +160,22 @@ _TOOL_FNS = {
 }
 
 
+_ALLOWED_MOODS = {"happy", "confused", "sleepy", "listening", "thinking",
+                  "drafting_email", "checking_calendar", "idle", "angry"}
+
+
+def _parse_mood_tag(text: str) -> tuple[str, str | None]:
+    lines = text.rstrip().splitlines()
+    if lines:
+        last = lines[-1].strip()
+        if last.upper().startswith("MOOD:"):
+            mood = last[5:].strip().lower()
+            if mood in _ALLOWED_MOODS:
+                cleaned = "\n".join(lines[:-1]).rstrip()
+                return cleaned, mood
+    return text, None
+
+
 def _pick_mood(tools_used: list, had_error: bool) -> str:
     if had_error:
         return "confused"
@@ -175,11 +205,12 @@ def run_agent(user_text: str) -> dict:
             "Use these to tailor your drafts and replies (match their writing style, know their contacts, respect their schedule)."
         )
 
-    system += "\n\nREMINDER: Critical style rules always apply — 2-3 sentences max, no asterisk narration, one sassy remark, no follow-up questions."
+    system += "\n\nREMINDER: Critical style rules always apply — 2-3 sentences max, no asterisk narration, one sassy remark, no follow-up questions. Always end with a MOOD: line."
 
     messages = [{"role": "user", "content": user_text}]
     tools_used: list[str] = []
     had_error = False
+    agent_mood: str | None = None
 
     while True:
         response = client.messages.create(
@@ -197,6 +228,7 @@ def run_agent(user_text: str) -> dict:
             reply = " ".join(
                 block.text for block in response.content if block.type == "text"
             )
+            reply, agent_mood = _parse_mood_tag(reply)
             break
 
         # Execute every tool_use block the model requested.
@@ -225,9 +257,20 @@ def run_agent(user_text: str) -> dict:
 
         messages.append({"role": "user", "content": tool_results})
 
+    if had_error:
+        mood = "confused"
+    elif "draft_email" in tools_used:
+        mood = "drafting_email"
+    elif "read_calendar" in tools_used:
+        mood = "checking_calendar"
+    elif agent_mood is not None:
+        mood = agent_mood
+    else:
+        mood = _pick_mood(tools_used, had_error)
+
     result = {
         "reply": reply,
-        "mood": _pick_mood(tools_used, had_error),
+        "mood": mood,
         "tools_used": tools_used,
     }
     _reflect_and_save(client, user_text, reply, tools_used)
