@@ -156,6 +156,7 @@
       user-select: none;
       cursor: pointer;
       transform-origin: center bottom;
+      filter: none;
       transition: filter 0.4s ease;
     }
 
@@ -476,8 +477,20 @@
     let catDragging = false;
     let catDragStart = { x: 0, y: 0 };
     let currentMood = 'idle';
+    let moodResetTimer = null;
     const DRAG_THRESHOLD = 5;
     const WINDOW_PADDING = 16;
+
+    const MOOD_REVERT_MS = {
+      happy: 1200,
+      thinking: null,
+      confused: null,
+      sleepy: null,
+      listening: null,
+      drafting_email: null,
+      checking_calendar: null,
+      idle: null,
+    };
 
     const appEl = document.getElementById('app');
 
@@ -497,6 +510,25 @@
       });
     }
 
+    function normalizeMood(mood) {
+      if (typeof mood !== 'string') return null;
+      const trimmed = mood.trim();
+      return VALID_MOODS.includes(trimmed) ? trimmed : null;
+    }
+
+    function clearMoodResetTimer() {
+      if (moodResetTimer !== null) {
+        clearTimeout(moodResetTimer);
+        moodResetTimer = null;
+      }
+    }
+
+    function restartCatAnimation() {
+      cat.style.animation = 'none';
+      void cat.offsetWidth;
+      cat.style.animation = '';
+    }
+
     function updateIdleBob() {
       const shouldBob =
         currentMood === 'idle' &&
@@ -506,14 +538,57 @@
       catWrap.classList.toggle('anim-idle', shouldBob);
     }
 
-    function setMood(mood) {
+    function setMood(mood, source = 'unknown') {
+      clearMoodResetTimer();
+
+      const rawMood = mood;
+      const safeMood = normalizeMood(mood) || 'idle';
+      const matched = normalizeMood(mood) !== null;
+
+      console.log(
+        '[mood]',
+        `source=${source}`,
+        `raw=${JSON.stringify(rawMood)}`,
+        `applied=${safeMood}`,
+        matched ? 'MATCH' : 'NO MATCH — fell back to idle',
+      );
+
       VALID_MOODS.forEach((name) => cat.classList.remove(`mood-${name}`));
-      const safeMood = VALID_MOODS.includes(mood) ? mood : 'idle';
+      restartCatAnimation();
+
       currentMood = safeMood;
       if (safeMood !== 'idle') {
         cat.classList.add(`mood-${safeMood}`);
+        const revertMs = MOOD_REVERT_MS[safeMood];
+        if (revertMs) {
+          moodResetTimer = setTimeout(() => {
+            if (currentMood === safeMood) {
+              console.log('[mood] animation finished, returning to idle-bob');
+              setMood('idle', 'mood-timer');
+            }
+          }, revertMs);
+        }
       }
+
       updateIdleBob();
+    }
+
+    function applyReplyMood(mood) {
+      let replyMood = normalizeMood(mood) || 'happy';
+      const matched = normalizeMood(mood) !== null;
+
+      console.log(
+        '[mood] reply received:',
+        JSON.stringify(mood),
+        matched ? 'MATCH' : 'NO MATCH',
+      );
+
+      if (replyMood === 'thinking') {
+        console.log('[mood] remapping reply thinking → happy (loading is over)');
+        replyMood = 'happy';
+      }
+
+      setMood(replyMood, 'backend-reply');
     }
 
     function setSubmitting(submitting) {
@@ -627,7 +702,7 @@
       commandOpen = true;
       backdrop.classList.add('open');
       commandPanel.classList.add('open');
-      setMood('listening');
+      setMood('listening', 'command-open');
       commandInput.focus();
       syncWindowSize();
     }
@@ -639,7 +714,7 @@
       commandInput.value = '';
 
       if (!isThinking && !bubbleVisible) {
-        setMood('idle');
+        setMood('idle', 'command-close');
       }
 
       syncWindowSize();
@@ -673,6 +748,7 @@
 
     function hideSpeechBubble() {
       clearBubbleTimer();
+      clearMoodResetTimer();
       stopThinkingDots();
       bubbleVisible = false;
       speechBubble.classList.remove('visible');
@@ -681,7 +757,7 @@
       bubbleReply.textContent = '';
 
       if (!isThinking && !commandOpen) {
-        setMood('idle');
+        setMood('idle', 'bubble-hide');
       }
 
       syncWindowSize();
@@ -738,7 +814,7 @@
 
       closeCommandPanel();
       setSubmitting(true);
-      setMood('thinking');
+      setMood('thinking', 'command-submit');
       showThinkingBubble(text);
 
       const requestId = ++activeRequestId;
@@ -749,14 +825,14 @@
 
         if (requestId !== activeRequestId) return;
 
-        setMood(data.mood || 'happy');
+        applyReplyMood(data.mood);
         showReplyBubble(data.reply || '...');
       } catch (error) {
         console.error('Backend error:', error);
 
         if (requestId !== activeRequestId) return;
 
-        setMood('confused');
+        setMood('confused', 'fetch-error');
         showErrorBubble();
       } finally {
         if (requestId === activeRequestId) {
@@ -840,7 +916,7 @@
       }
     });
 
-    setMood('idle');
+    setMood('idle', 'startup');
     whenCatPhotoModuleReady(initUploadUI);
     window.addEventListener('cat-layout-changed', syncWindowSize);
     syncWindowSize();
