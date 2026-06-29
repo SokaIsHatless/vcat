@@ -3,12 +3,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import json
+import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import anthropic
 from tools import read_calendar, read_emails, draft_email, set_reminder
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
+MEMORY_FILE = os.path.join(os.path.dirname(__file__), "memory.json")
+MAX_FACTS = 30
 
 
 def _load_personality() -> str | None:
@@ -17,6 +21,51 @@ def _load_personality() -> str | None:
             return json.load(f)["personality"]
     except (FileNotFoundError, KeyError):
         return None
+
+
+def _load_memory() -> list[str]:
+    try:
+        with open(MEMORY_FILE) as f:
+            return json.load(f).get("facts", [])
+    except (FileNotFoundError, KeyError):
+        return []
+
+
+def _reflect_and_save(client: anthropic.Anthropic, user_text: str, reply: str, tools_used: list[str]) -> None:
+    try:
+        existing = _load_memory()
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=256,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"User said: {user_text}\n"
+                    f"Assistant replied: {reply}\n"
+                    f"Tools used: {tools_used}\n\n"
+                    "Extract any DURABLE facts worth remembering long-term about this user: "
+                    "writing style, sign-off, contact relationships, recurring schedule, stated preferences. "
+                    "NOT one-off details ('user has a 2pm today' is not durable; 'user\\'s manager is Priya' is). "
+                    "Return ONLY a JSON array of short one-sentence fact strings, or [] if nothing new. "
+                    "Return ONLY the raw JSON array with no markdown formatting, no code fences, no explanation — just the array starting with [ and ending with ]. "
+                    "Example: [\"User signs emails as 'Soka'\", \"User prefers blunt, short emails\"]\n"
+                    f"Already known (do not duplicate): {json.dumps(existing)}"
+                ),
+            }],
+        )
+        raw = response.content[0].text.strip()
+        raw = re.sub(r"```[a-z]*\n?", "", raw).replace("```", "").strip()
+        start, end = raw.find("["), raw.rfind("]")
+        new_facts: list = json.loads(raw[start:end + 1]) if start != -1 and end != -1 else []
+        if not isinstance(new_facts, list) or not new_facts:
+            return
+        combined = existing + [f for f in new_facts if f not in existing]
+        combined = combined[:MAX_FACTS]
+        with open(MEMORY_FILE, "w") as f:
+            json.dump({"facts": combined}, f, indent=2)
+        print(f"  [memory] +{len(new_facts)} fact(s): {new_facts}")
+    except Exception as exc:
+        print(f"  [memory] reflect failed silently: {exc}")
 
 SYSTEM_PROMPT = """You are a sarcastic cat overlord who has taken up residence on your human's PC. You have access to their calendar and email, and you can draft messages and set reminders on their behalf.
 
@@ -111,12 +160,23 @@ def _pick_mood(tools_used: list, had_error: bool) -> str:
 
 def run_agent(user_text: str) -> dict:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    today = datetime.now().strftime("%A, %B %d, %Y")
-    system = SYSTEM_PROMPT + f"\n\nToday's date is {today}."
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    system = SYSTEM_PROMPT + f"\n\nThe current date and time is {now.strftime('%A, %B %d, %Y at %I:%M %p')} (IST)."
+
     personality = _load_personality()
     if personality:
         system += f"\n\nYour specific personality, drawn from your appearance: {personality}"
-        system += "\n\nREMINDER: The personality above flavors your TONE only. The critical style rules always apply — 2-3 sentences max, no asterisk narration, one sassy remark, no follow-up questions."
+
+    facts = _load_memory()
+    if facts:
+        facts_block = " ".join(f"- {f}" for f in facts)
+        system += (
+            f"\n\nWhat you've learned about this human so far: {facts_block} "
+            "Use these to tailor your drafts and replies (match their writing style, know their contacts, respect their schedule)."
+        )
+
+    system += "\n\nREMINDER: Critical style rules always apply — 2-3 sentences max, no asterisk narration, one sassy remark, no follow-up questions."
+
     messages = [{"role": "user", "content": user_text}]
     tools_used: list[str] = []
     had_error = False
@@ -165,11 +225,13 @@ def run_agent(user_text: str) -> dict:
 
         messages.append({"role": "user", "content": tool_results})
 
-    return {
+    result = {
         "reply": reply,
         "mood": _pick_mood(tools_used, had_error),
         "tools_used": tools_used,
     }
+    _reflect_and_save(client, user_text, reply, tools_used)
+    return result
 
 
 if __name__ == "__main__":
