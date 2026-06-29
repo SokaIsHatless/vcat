@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from agent import run_agent
 
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
+MEMORY_FILE = os.path.join(os.path.dirname(__file__), "memory.json")
 
 app = FastAPI()
 
@@ -83,6 +84,39 @@ async def upload_cat(file: UploadFile = File(...)):
 
     print(f"★ PERSONALITY STORED: {personality[:80]}...")
     return {"personality": personality}
+
+
+def _load_facts() -> list[str]:
+    try:
+        with open(MEMORY_FILE) as f:
+            return json.load(f).get("facts", [])
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return []
+
+
+def _save_facts(facts: list[str]) -> None:
+    with open(MEMORY_FILE, "w") as f:
+        json.dump({"facts": facts}, f, indent=2)
+
+
+@app.get("/memory")
+def get_memory():
+    return {"facts": _load_facts()}
+
+
+@app.delete("/memory")
+def clear_memory():
+    _save_facts([])
+    return {"facts": []}
+
+
+@app.delete("/memory/{index}")
+def delete_fact(index: int):
+    facts = _load_facts()
+    if 0 <= index < len(facts):
+        facts.pop(index)
+        _save_facts(facts)
+    return {"facts": facts}
 
 
 @app.post("/command")
