@@ -9,6 +9,14 @@ export function isCatPhotoReady() {
   return catPhotoReady;
 }
 
+export function markCatReady(cutoutUrl) {
+  if (catObjectUrl && catObjectUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(catObjectUrl);
+  }
+  catObjectUrl = cutoutUrl;
+  catPhotoReady = true;
+}
+
 export async function processCatPhoto(file, { onStatus, catImg }) {
   if (!file || !file.type.startsWith('image/')) {
     throw new Error('Please choose an image file (JPEG, PNG, etc.).');
@@ -17,17 +25,17 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   onStatus('Removing background... (first run may download a model)');
   const previewUrl = URL.createObjectURL(file);
 
+  let cutoutBlob;
   try {
-    const cutoutBlob = await removeBackground(previewUrl);
-    if (catObjectUrl) {
-      URL.revokeObjectURL(catObjectUrl);
-    }
-    catObjectUrl = URL.createObjectURL(cutoutBlob);
-    catImg.src = catObjectUrl;
-    window.dispatchEvent(new Event('cat-layout-changed'));
+    cutoutBlob = await removeBackground(previewUrl);
   } finally {
     URL.revokeObjectURL(previewUrl);
   }
+
+  const savedUrl = await window.catStorage.saveCutout(await cutoutBlob.arrayBuffer());
+  markCatReady(savedUrl);
+  catImg.src = savedUrl;
+  window.dispatchEvent(new Event('cat-layout-changed'));
 
   onStatus('Analyzing your cat...');
   const formData = new FormData();
@@ -45,14 +53,23 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   const data = await response.json();
   console.log('Cat personality:', data.personality);
 
-  catPhotoReady = true;
   onStatus('');
   window.dispatchEvent(new Event('cat-photo-ready'));
+}
+
+export function resetCatPhoto() {
+  if (catObjectUrl && catObjectUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(catObjectUrl);
+  }
+  catObjectUrl = null;
+  catPhotoReady = false;
 }
 
 window.catPhoto = {
   isReady: isCatPhotoReady,
   processFile: processCatPhoto,
+  markReady: markCatReady,
+  reset: resetCatPhoto,
 };
 
 window.dispatchEvent(new Event('cat-photo-module-ready'));

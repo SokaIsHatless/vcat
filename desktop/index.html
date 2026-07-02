@@ -384,6 +384,31 @@
       background: #fff;
     }
 
+    #delete-cat-btn {
+      display: none;
+      position: absolute;
+      right: 0;
+      bottom: 28px;
+      padding: 4px 8px;
+      border: 1px solid #a55;
+      border-radius: 8px;
+      background: rgba(255, 240, 240, 0.92);
+      color: #922;
+      font-size: 11px;
+      font-family: system-ui, sans-serif;
+      cursor: pointer;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    #delete-cat-btn.visible {
+      display: block;
+    }
+
+    #delete-cat-btn:hover {
+      background: #ffe8e8;
+    }
+
     #memory-btn {
       display: none;
       position: absolute;
@@ -631,7 +656,7 @@
   </style>
 </head>
 <body>
-  <div id="upload-overlay" class="visible">
+  <div id="upload-overlay">
     <div id="upload-panel">
       <h1>Cat Overlord</h1>
       <p>Upload your cat to summon your overlord.</p>
@@ -678,6 +703,7 @@
 
     <div id="cat-wrap">
       <button type="button" id="memory-btn" title="What your cat knows about you">🧠</button>
+      <button type="button" id="delete-cat-btn">Delete cat</button>
       <button type="button" id="change-cat-btn">Change cat</button>
       <div id="mood-overlay" aria-hidden="true"></div>
       <img id="cat" src="cat.png" alt="Cat Overlord" draggable="false">
@@ -696,6 +722,8 @@
   <script>
     const API_URL = 'http://localhost:8000/command';
     const MEMORY_URL = 'http://localhost:8000/memory';
+    const HAS_CAT_URL = 'http://localhost:8000/has_cat';
+    const DELETE_CAT_URL = 'http://localhost:8000/cat';
     const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
     const BUBBLE_HIDE_MS = 6000;
     const VALID_MOODS = [
@@ -735,6 +763,7 @@
     const fileInput = document.getElementById('file-input');
     const uploadStatus = document.getElementById('upload-status');
     const changeCatBtn = document.getElementById('change-cat-btn');
+    const deleteCatBtn = document.getElementById('delete-cat-btn');
     const memoryBtn = document.getElementById('memory-btn');
     const memoryPanel = document.getElementById('memory-panel');
     const memoryCloseBtn = document.getElementById('memory-close-btn');
@@ -942,13 +971,93 @@
 
     function showUploadOverlay() {
       uploadOverlay.classList.add('visible');
+      changeCatBtn.classList.remove('visible');
+      deleteCatBtn.classList.remove('visible');
+      memoryBtn.classList.remove('visible');
       syncWindowSize();
     }
 
     function hideUploadOverlay() {
       uploadOverlay.classList.remove('visible');
       changeCatBtn.classList.add('visible');
+      deleteCatBtn.classList.add('visible');
       memoryBtn.classList.add('visible');
+      syncWindowSize();
+    }
+
+    async function tryRestoreSavedCat() {
+      const hasLocalCutout = await window.catStorage.hasSavedCutout();
+      if (!hasLocalCutout) {
+        showUploadOverlay();
+        return;
+      }
+
+      let hasBackendCat = null;
+      try {
+        const response = await fetch(HAS_CAT_URL);
+        if (response.ok) {
+          const data = await response.json();
+          hasBackendCat = data.has_cat === true;
+        }
+      } catch (error) {
+        console.warn('has_cat check failed (backend may be down):', error);
+      }
+
+      if (hasBackendCat === false) {
+        console.log('Backend has no personality — clearing local cutout');
+        await window.catStorage.deleteCutout();
+        showUploadOverlay();
+        return;
+      }
+
+      const cutoutUrl = await window.catStorage.getCutoutUrl();
+      if (!cutoutUrl) {
+        showUploadOverlay();
+        return;
+      }
+
+      if (hasBackendCat === null) {
+        console.warn('Could not verify backend personality — restoring local cutout anyway');
+      } else {
+        console.log('Restoring saved cat from disk (backend confirmed)');
+      }
+
+      cat.src = cutoutUrl;
+      window.catPhoto.markReady(cutoutUrl);
+      hideUploadOverlay();
+      window.dispatchEvent(new Event('cat-layout-changed'));
+      syncWindowSize();
+    }
+
+    async function deleteCat() {
+      if (!confirm('Delete your cat and start over? This clears personality and memory.')) {
+        return;
+      }
+
+      deleteCatBtn.disabled = true;
+
+      try {
+        const response = await fetch(DELETE_CAT_URL, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      } catch (error) {
+        console.error('Backend cat delete failed:', error);
+        alert('Could not reach the backend to delete personality. Is it running on :8000?');
+        deleteCatBtn.disabled = false;
+        return;
+      }
+
+      await window.catStorage.deleteCutout();
+      window.catPhoto.reset();
+      cat.src = 'cat.png';
+
+      if (memoryOpen) {
+        closeMemoryPanel();
+      }
+
+      showUploadOverlay();
+      deleteCatBtn.disabled = false;
       syncWindowSize();
     }
 
@@ -1159,6 +1268,15 @@
         event.stopPropagation();
       });
 
+      deleteCatBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        deleteCat();
+      });
+
+      deleteCatBtn.addEventListener('mousedown', (event) => {
+        event.stopPropagation();
+      });
+
       memoryBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1182,11 +1300,7 @@
         event.stopPropagation();
       });
 
-      if (window.catPhoto.isReady()) {
-        hideUploadOverlay();
-      } else {
-        showUploadOverlay();
-      }
+      tryRestoreSavedCat();
     }
 
     function whenCatPhotoModuleReady(callback) {

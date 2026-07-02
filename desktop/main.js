@@ -1,11 +1,18 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const WINDOW_WIDTH = 320;
 const WINDOW_MIN_HEIGHT = 300;
 const WINDOW_MAX_HEIGHT = 720;
+const CAT_CUTOUT_FILENAME = 'cat-cutout.png';
 
 let mainWindow;
+
+function getCutoutPath() {
+  return path.join(app.getPath('userData'), CAT_CUTOUT_FILENAME);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -27,6 +34,33 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
+
+ipcMain.handle('cat-has-saved-cutout', () => {
+  return fs.existsSync(getCutoutPath());
+});
+
+ipcMain.handle('cat-save-cutout', (_event, arrayBuffer) => {
+  const filePath = getCutoutPath();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+  return pathToFileURL(filePath).href;
+});
+
+ipcMain.handle('cat-get-cutout-url', () => {
+  const filePath = getCutoutPath();
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  return pathToFileURL(filePath).href;
+});
+
+ipcMain.handle('cat-delete-cutout', () => {
+  const filePath = getCutoutPath();
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+  return true;
+});
 
 ipcMain.on('window-move-by', (_event, { dx, dy }) => {
   if (!mainWindow) return;

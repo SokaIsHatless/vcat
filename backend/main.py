@@ -32,6 +32,25 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/has_cat")
+def has_cat():
+    try:
+        with open(PERSONALITY_FILE) as f:
+            data = json.load(f)
+        return {"has_cat": bool(data.get("personality"))}
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        return {"has_cat": False}
+
+
+@app.delete("/cat")
+def delete_cat():
+    if os.path.exists(PERSONALITY_FILE):
+        os.remove(PERSONALITY_FILE)
+    _save_facts([])
+    print("★ CAT DELETED — personality and memory cleared")
+    return {"ok": True}
+
+
 @app.post("/upload_cat")
 async def upload_cat(file: UploadFile = File(...)):
     image_bytes = await file.read()
