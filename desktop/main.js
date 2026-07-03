@@ -25,13 +25,8 @@ function getCutoutPath() {
 }
 
 function getTrayIcon() {
-  const iconPath = path.join(__dirname, 'tray-icon.png');
-  let icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    icon = nativeImage.createFromDataURL(
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA8klEQVR4Ae2WMQ6AIAxF/5/dHRwMhjgYxLvvJc0f0tI+SKG0BgAAAAAAAAAAAPwPgQAAAAAAAAAAAAAAADxLAAAAAAAAAAAAAAAAeBYBAAAAAAAAAAAAAAAAPMsAAAAAAAAAAAAAAAB4FgEAAAAAAAAAAAAAAAC8ywc4ABGzF1q5AAAAAElFTkSuQmCC',
-    );
-  }
+  const iconPath = path.join(__dirname, 'logo.png');
+  const icon = nativeImage.createFromPath(iconPath);
   return icon.resize({ width: 16, height: 16 });
 }
 
