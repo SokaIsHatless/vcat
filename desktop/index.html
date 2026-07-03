@@ -364,6 +364,7 @@
       position: absolute;
       right: 0;
       bottom: 4px;
+      z-index: 5;
       padding: 4px 8px;
       border: 1px solid #a55;
       border-radius: 8px;
@@ -1229,11 +1230,13 @@
       });
 
       deleteCatBtn.addEventListener('click', (event) => {
+        event.preventDefault();
         event.stopPropagation();
         deleteCat();
       });
 
       deleteCatBtn.addEventListener('mousedown', (event) => {
+        event.preventDefault();
         event.stopPropagation();
       });
 

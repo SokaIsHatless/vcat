@@ -32,10 +32,13 @@ function clampToWorkArea(x, y, width, height) {
   };
 }
 
-function setWindowPositionClamped(x, y) {
+function applyClampedPosition(x, y, width, height) {
   if (!mainWindow) return;
-  const [width, height] = mainWindow.getContentSize();
   const clamped = clampToWorkArea(x, y, width, height);
+  const bounds = mainWindow.getBounds();
+  if (clamped.x === bounds.x && clamped.y === bounds.y) {
+    return;
+  }
   mainWindow.setPosition(clamped.x, clamped.y);
 }
 
@@ -58,16 +61,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-  mainWindow.on('moved', () => {
-    if (!mainWindow) return;
-    const [x, y] = mainWindow.getPosition();
-    const [width, height] = mainWindow.getContentSize();
-    const clamped = clampToWorkArea(x, y, width, height);
-    if (clamped.x !== x || clamped.y !== y) {
-      mainWindow.setPosition(clamped.x, clamped.y);
-    }
-  });
 }
 
 ipcMain.handle('cat-has-saved-cutout', () => {
@@ -99,8 +92,8 @@ ipcMain.handle('cat-delete-cutout', () => {
 
 ipcMain.on('window-move-by', (_event, { dx, dy }) => {
   if (!mainWindow) return;
-  const [x, y] = mainWindow.getPosition();
-  setWindowPositionClamped(x + dx, y + dy);
+  const bounds = mainWindow.getBounds();
+  applyClampedPosition(bounds.x + dx, bounds.y + dy, bounds.width, bounds.height);
 });
 
 ipcMain.on('window-set-height', (_event, { height }) => {
@@ -110,14 +103,13 @@ ipcMain.on('window-set-height', (_event, { height }) => {
     WINDOW_MIN_HEIGHT,
     Math.min(Math.ceil(height), WINDOW_MAX_HEIGHT),
   );
-  const [, oldHeight] = mainWindow.getContentSize();
-  const delta = newHeight - oldHeight;
+  const bounds = mainWindow.getBounds();
+  const delta = newHeight - bounds.height;
 
   if (delta === 0) return;
 
-  const [x, y] = mainWindow.getPosition();
   mainWindow.setContentSize(WINDOW_WIDTH, newHeight);
-  setWindowPositionClamped(x, y - delta);
+  applyClampedPosition(bounds.x, bounds.y - delta, WINDOW_WIDTH, newHeight);
 });
 
 app.whenReady().then(createWindow);
