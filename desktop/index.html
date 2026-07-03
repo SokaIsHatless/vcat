@@ -359,36 +359,11 @@
       background: #555;
     }
 
-    #change-cat-btn {
-      display: none;
-      position: absolute;
-      right: 0;
-      bottom: 4px;
-      padding: 4px 8px;
-      border: 1px solid #333;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.92);
-      color: #333;
-      font-size: 11px;
-      font-family: system-ui, sans-serif;
-      cursor: pointer;
-      pointer-events: auto;
-      -webkit-app-region: no-drag;
-    }
-
-    #change-cat-btn.visible {
-      display: block;
-    }
-
-    #change-cat-btn:hover {
-      background: #fff;
-    }
-
     #delete-cat-btn {
       display: none;
       position: absolute;
       right: 0;
-      bottom: 28px;
+      bottom: 4px;
       padding: 4px 8px;
       border: 1px solid #a55;
       border-radius: 8px;
@@ -704,7 +679,6 @@
     <div id="cat-wrap">
       <button type="button" id="memory-btn" title="What your cat knows about you">🧠</button>
       <button type="button" id="delete-cat-btn">Delete cat</button>
-      <button type="button" id="change-cat-btn">Change cat</button>
       <div id="mood-overlay" aria-hidden="true"></div>
       <img id="cat" src="cat.png" alt="Cat Overlord" draggable="false">
     </div>
@@ -762,7 +736,6 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const uploadStatus = document.getElementById('upload-status');
-    const changeCatBtn = document.getElementById('change-cat-btn');
     const deleteCatBtn = document.getElementById('delete-cat-btn');
     const memoryBtn = document.getElementById('memory-btn');
     const memoryPanel = document.getElementById('memory-panel');
@@ -971,7 +944,6 @@
 
     function showUploadOverlay() {
       uploadOverlay.classList.add('visible');
-      changeCatBtn.classList.remove('visible');
       deleteCatBtn.classList.remove('visible');
       memoryBtn.classList.remove('visible');
       syncWindowSize();
@@ -979,7 +951,6 @@
 
     function hideUploadOverlay() {
       uploadOverlay.classList.remove('visible');
-      changeCatBtn.classList.add('visible');
       deleteCatBtn.classList.add('visible');
       memoryBtn.classList.add('visible');
       syncWindowSize();
@@ -1255,15 +1226,6 @@
         if (isUploading) return;
         const file = event.dataTransfer.files && event.dataTransfer.files[0];
         if (file) handlePhotoSelected(file);
-      });
-
-      changeCatBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        showUploadOverlay();
-      });
-
-      changeCatBtn.addEventListener('mousedown', (event) => {
-        event.stopPropagation();
       });
 
       deleteCatBtn.addEventListener('click', (event) => {
