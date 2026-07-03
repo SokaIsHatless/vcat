@@ -987,25 +987,28 @@
 
     async function tryRestoreSavedCat() {
       const hasLocalCutout = await window.catStorage.hasSavedCutout();
-      if (!hasLocalCutout) {
-        showUploadOverlay();
-        return;
-      }
 
-      let hasBackendCat = null;
+      let hasBackendCat = false;
+      let backendReachable = false;
       try {
         const response = await fetch(HAS_CAT_URL);
         if (response.ok) {
+          backendReachable = true;
           const data = await response.json();
           hasBackendCat = data.has_cat === true;
+        } else {
+          console.warn('has_cat check failed:', response.status);
         }
       } catch (error) {
-        console.warn('has_cat check failed (backend may be down):', error);
+        console.warn('has_cat unreachable:', error);
       }
 
-      if (hasBackendCat === false) {
-        console.log('Backend has no personality — clearing local cutout');
+      if (hasLocalCutout && backendReachable && !hasBackendCat) {
+        console.log('Local cutout exists but backend has no personality — clearing local');
         await window.catStorage.deleteCutout();
+      }
+
+      if (!backendReachable || !hasLocalCutout || !hasBackendCat) {
         showUploadOverlay();
         return;
       }
@@ -1016,12 +1019,7 @@
         return;
       }
 
-      if (hasBackendCat === null) {
-        console.warn('Could not verify backend personality — restoring local cutout anyway');
-      } else {
-        console.log('Restoring saved cat from disk (backend confirmed)');
-      }
-
+      console.log('Restoring saved cat (local cutout + backend personality)');
       cat.src = cutoutUrl;
       window.catPhoto.markReady(cutoutUrl);
       hideUploadOverlay();
