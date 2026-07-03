@@ -1,4 +1,12 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  screen,
+  Tray,
+  Menu,
+  nativeImage,
+} = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -7,48 +15,89 @@ const WINDOW_WIDTH = 320;
 const WINDOW_MIN_HEIGHT = 300;
 const WINDOW_MAX_HEIGHT = 720;
 const CAT_CUTOUT_FILENAME = 'cat-cutout.png';
-const DEBUG_CLAMP = process.env.VCAT_DEBUG_CLAMP !== '0';
 
 let mainWindow;
+let tray = null;
+let catVisible = true;
 
 function getCutoutPath() {
   return path.join(app.getPath('userData'), CAT_CUTOUT_FILENAME);
 }
 
-/**
- * Clamp a desired top-left position so the full outer window (getBounds size)
- * stays inside the nearest display workArea (excludes taskbar).
- */
-function computeClamp(desiredX, desiredY, sizeOverride = null) {
-  const bounds = mainWindow.getBounds();
-  const windowWidth = sizeOverride?.width ?? bounds.width;
-  const windowHeight = sizeOverride?.height ?? bounds.height;
-
-  const display = screen.getDisplayNearestPoint({
-    x: Math.round(desiredX + windowWidth / 2),
-    y: Math.round(desiredY + windowHeight / 2),
-  });
-  const { workArea } = display;
-
-  const maxX = workArea.x + workArea.width - windowWidth;
-  const maxY = workArea.y + workArea.height - windowHeight;
-
-  const clampedX = Math.max(workArea.x, Math.min(desiredX, maxX));
-  const clampedY = Math.max(workArea.y, Math.min(desiredY, maxY));
-
-  if (DEBUG_CLAMP) {
-    console.log('[clamp]', {
-      workArea,
-      window: { width: windowWidth, height: windowHeight },
-      current: { x: bounds.x, y: bounds.y },
-      desired: { x: desiredX, y: desiredY },
-      clamped: { x: clampedX, y: clampedY },
-      max: { x: maxX, y: maxY },
-      outOfBounds: clampedX !== desiredX || clampedY !== desiredY,
-    });
+function getTrayIcon() {
+  const iconPath = path.join(__dirname, 'tray-icon.png');
+  let icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) {
+    icon = nativeImage.createFromDataURL(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA8klEQVR4Ae2WMQ6AIAxF/5/dHRwMhjgYxLvvJc0f0tI+SKG0BgAAAAAAAAAAAPwPgQAAAAAAAAAAAAAAADxLAAAAAAAAAAAAAAAAeBYBAAAAAAAAAAAAAAAAPMsAAAAAAAAAAAAAAAB4FgEAAAAAAAAAAAAAAAC8ywc4ABGzF1q5AAAAAElFTkSuQmCC',
+    );
   }
+  return icon.resize({ width: 16, height: 16 });
+}
 
-  return { clampedX, clampedY, bounds };
+function centerCat() {
+  if (!mainWindow) return;
+
+  const { workArea } = screen.getPrimaryDisplay();
+  const { width: w, height: h } = mainWindow.getBounds();
+  const centerX = Math.round(workArea.x + (workArea.width - w) / 2);
+  const centerY = Math.round(workArea.y + (workArea.height - h) / 2);
+
+  mainWindow.setPosition(centerX, centerY);
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+    catVisible = true;
+    rebuildTrayMenu();
+  }
+}
+
+function setCatVisible(visible) {
+  if (!mainWindow) return;
+
+  catVisible = visible;
+  if (visible) {
+    mainWindow.show();
+  } else {
+    mainWindow.hide();
+  }
+  rebuildTrayMenu();
+}
+
+function rebuildTrayMenu() {
+  if (!tray) return;
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: catVisible ? 'Hide cat' : 'Show cat',
+      click: () => setCatVisible(!catVisible),
+    },
+    {
+      label: 'Center cat',
+      click: () => centerCat(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(menu);
+}
+
+function createTray() {
+  tray = new Tray(getTrayIcon());
+  tray.setToolTip('Cat Overlord');
+
+  tray.on('click', () => {
+    centerCat();
+  });
+
+  rebuildTrayMenu();
 }
 
 function createWindow() {
@@ -101,17 +150,8 @@ ipcMain.handle('cat-delete-cutout', () => {
 
 ipcMain.on('window-move-by', (_event, { dx, dy }) => {
   if (!mainWindow) return;
-
-  const bounds = mainWindow.getBounds();
-  const desiredX = bounds.x + dx;
-  const desiredY = bounds.y + dy;
-  const { clampedX, clampedY } = computeClamp(desiredX, desiredY);
-
-  // Only reposition when the clamped result differs from where we are now.
-  // At the taskbar edge this skips redundant setPosition calls; elsewhere it moves freely.
-  if (clampedX !== bounds.x || clampedY !== bounds.y) {
-    mainWindow.setPosition(clampedX, clampedY);
-  }
+  const [x, y] = mainWindow.getPosition();
+  mainWindow.setPosition(x + dx, y + dy);
 });
 
 ipcMain.on('window-set-height', (_event, { height }) => {
@@ -121,27 +161,29 @@ ipcMain.on('window-set-height', (_event, { height }) => {
     WINDOW_MIN_HEIGHT,
     Math.min(Math.ceil(height), WINDOW_MAX_HEIGHT),
   );
-  const bounds = mainWindow.getBounds();
-  const delta = newHeight - bounds.height;
+  const [, oldHeight] = mainWindow.getContentSize();
+  const delta = newHeight - oldHeight;
 
   if (delta === 0) return;
 
-  const desiredY = bounds.y - delta;
-  const { clampedX, clampedY } = computeClamp(bounds.x, desiredY, {
-    width: bounds.width,
-    height: newHeight,
-  });
-
-  mainWindow.setBounds({
-    x: clampedX,
-    y: clampedY,
-    width: bounds.width,
-    height: newHeight,
-  });
+  const [x, y] = mainWindow.getPosition();
+  mainWindow.setContentSize(WINDOW_WIDTH, newHeight);
+  mainWindow.setPosition(x, y - delta);
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+});
 
 app.on('window-all-closed', () => {
-  app.quit();
+  // Tray keeps the app alive when the cat window is hidden.
+});
+
+app.on('before-quit', () => {
+  app.isQuitting = true;
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
 });
