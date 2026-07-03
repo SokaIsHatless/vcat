@@ -7,6 +7,7 @@ const WINDOW_WIDTH = 320;
 const WINDOW_MIN_HEIGHT = 300;
 const WINDOW_MAX_HEIGHT = 720;
 const CAT_CUTOUT_FILENAME = 'cat-cutout.png';
+const DEBUG_CLAMP = process.env.VCAT_DEBUG_CLAMP !== '0';
 
 let mainWindow;
 
@@ -14,32 +15,40 @@ function getCutoutPath() {
   return path.join(app.getPath('userData'), CAT_CUTOUT_FILENAME);
 }
 
-function clampToWorkArea(x, y, width, height) {
+/**
+ * Clamp a desired top-left position so the full outer window (getBounds size)
+ * stays inside the nearest display workArea (excludes taskbar).
+ */
+function computeClamp(desiredX, desiredY, sizeOverride = null) {
+  const bounds = mainWindow.getBounds();
+  const windowWidth = sizeOverride?.width ?? bounds.width;
+  const windowHeight = sizeOverride?.height ?? bounds.height;
+
   const display = screen.getDisplayNearestPoint({
-    x: Math.round(x + width / 2),
-    y: Math.round(y + height / 2),
+    x: Math.round(desiredX + windowWidth / 2),
+    y: Math.round(desiredY + windowHeight / 2),
   });
   const { workArea } = display;
 
-  const minX = workArea.x;
-  const minY = workArea.y;
-  const maxX = workArea.x + workArea.width - width;
-  const maxY = workArea.y + workArea.height - height;
+  const maxX = workArea.x + workArea.width - windowWidth;
+  const maxY = workArea.y + workArea.height - windowHeight;
 
-  return {
-    x: Math.min(Math.max(x, minX), maxX),
-    y: Math.min(Math.max(y, minY), maxY),
-  };
-}
+  const clampedX = Math.max(workArea.x, Math.min(desiredX, maxX));
+  const clampedY = Math.max(workArea.y, Math.min(desiredY, maxY));
 
-function applyClampedPosition(x, y, width, height) {
-  if (!mainWindow) return;
-  const clamped = clampToWorkArea(x, y, width, height);
-  const bounds = mainWindow.getBounds();
-  if (clamped.x === bounds.x && clamped.y === bounds.y) {
-    return;
+  if (DEBUG_CLAMP) {
+    console.log('[clamp]', {
+      workArea,
+      window: { width: windowWidth, height: windowHeight },
+      current: { x: bounds.x, y: bounds.y },
+      desired: { x: desiredX, y: desiredY },
+      clamped: { x: clampedX, y: clampedY },
+      max: { x: maxX, y: maxY },
+      outOfBounds: clampedX !== desiredX || clampedY !== desiredY,
+    });
   }
-  mainWindow.setPosition(clamped.x, clamped.y);
+
+  return { clampedX, clampedY, bounds };
 }
 
 function createWindow() {
@@ -92,8 +101,17 @@ ipcMain.handle('cat-delete-cutout', () => {
 
 ipcMain.on('window-move-by', (_event, { dx, dy }) => {
   if (!mainWindow) return;
+
   const bounds = mainWindow.getBounds();
-  applyClampedPosition(bounds.x + dx, bounds.y + dy, bounds.width, bounds.height);
+  const desiredX = bounds.x + dx;
+  const desiredY = bounds.y + dy;
+  const { clampedX, clampedY } = computeClamp(desiredX, desiredY);
+
+  // Only reposition when the clamped result differs from where we are now.
+  // At the taskbar edge this skips redundant setPosition calls; elsewhere it moves freely.
+  if (clampedX !== bounds.x || clampedY !== bounds.y) {
+    mainWindow.setPosition(clampedX, clampedY);
+  }
 });
 
 ipcMain.on('window-set-height', (_event, { height }) => {
@@ -108,8 +126,18 @@ ipcMain.on('window-set-height', (_event, { height }) => {
 
   if (delta === 0) return;
 
-  mainWindow.setContentSize(WINDOW_WIDTH, newHeight);
-  applyClampedPosition(bounds.x, bounds.y - delta, WINDOW_WIDTH, newHeight);
+  const desiredY = bounds.y - delta;
+  const { clampedX, clampedY } = computeClamp(bounds.x, desiredY, {
+    width: bounds.width,
+    height: newHeight,
+  });
+
+  mainWindow.setBounds({
+    x: clampedX,
+    y: clampedY,
+    width: bounds.width,
+    height: newHeight,
+  });
 });
 
 app.whenReady().then(createWindow);
