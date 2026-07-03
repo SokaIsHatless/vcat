@@ -47,6 +47,8 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   });
 
   if (!response.ok) {
+    await window.catStorage.deleteCutout();
+    resetCatPhoto();
     throw new Error(`Upload failed (HTTP ${response.status})`);
   }
 

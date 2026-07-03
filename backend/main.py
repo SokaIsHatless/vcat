@@ -42,15 +42,6 @@ def has_cat():
         return {"has_cat": False}
 
 
-@app.delete("/cat")
-def delete_cat():
-    if os.path.exists(PERSONALITY_FILE):
-        os.remove(PERSONALITY_FILE)
-    _save_facts([])
-    print("★ CAT DELETED — personality and memory cleared")
-    return {"ok": True}
-
-
 @app.post("/upload_cat")
 async def upload_cat(file: UploadFile = File(...)):
     image_bytes = await file.read()
@@ -118,19 +109,13 @@ def _save_facts(facts: list[str]) -> None:
         json.dump({"facts": facts}, f, indent=2)
 
 
-@app.get("/has_cat")
-def has_cat():
-    return {"has_cat": os.path.exists(PERSONALITY_FILE)}
-
-
 @app.delete("/cat")
 def delete_cat():
-    for path in (PERSONALITY_FILE, MEMORY_FILE):
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-    return {"status": "deleted"}
+    if os.path.exists(PERSONALITY_FILE):
+        os.remove(PERSONALITY_FILE)
+    _save_facts([])
+    print("★ CAT DELETED — personality and memory cleared")
+    return {"ok": True}
 
 
 @app.get("/memory")
