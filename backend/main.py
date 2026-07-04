@@ -44,6 +44,53 @@ def has_cat():
         return {"has_cat": False}
 
 
+@app.get("/greeting")
+def get_greeting():
+    fallback = "Well, look who's back. 🐾"
+    try:
+        personality = None
+        try:
+            with open(PERSONALITY_FILE) as f:
+                personality = json.load(f).get("personality")
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            pass
+
+        if not personality:
+            return {"greeting": fallback}
+
+        facts = _load_facts()
+        facts_block = (
+            " ".join(f"- {f}" for f in facts)
+            if facts
+            else "Nothing specific yet — greet them warmly anyway."
+        )
+
+        client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        response = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=128,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"You are a cat AI assistant with this personality: {personality}\n\n"
+                    f"What you know about this human: {facts_block}\n\n"
+                    "Write a brief launch greeting (1-2 sentences max) welcoming them back "
+                    "to their desktop. If you know their name or preferences from memory, "
+                    "weave them in naturally. Stay in character — dry, witty, cat overlord energy. "
+                    "No asterisk action narration. Return ONLY the greeting text, nothing else."
+                ),
+            }],
+        )
+        text = response.content[0].text.strip()
+        if text:
+            print(f"★ GREETING: {text[:80]}...")
+            return {"greeting": text}
+    except Exception as exc:
+        print(f"★ GREETING failed: {exc}")
+
+    return {"greeting": fallback}
+
+
 @app.post("/upload_cat")
 async def upload_cat(file: UploadFile = File(...)):
     image_bytes = await file.read()

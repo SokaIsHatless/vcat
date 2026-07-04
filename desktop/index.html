@@ -786,7 +786,10 @@
     const MEMORY_URL = 'http://localhost:8000/memory';
     const HAS_CAT_URL = 'http://localhost:8000/has_cat';
     const DELETE_CAT_URL = 'http://localhost:8000/cat';
+    const GREETING_URL = 'http://localhost:8000/greeting';
     const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
+    const LAUNCH_GREETING_PLACEHOLDER = "Well, look who's back. 🐾";
+    const GREETING_FETCH_TIMEOUT_MS = 8000;
     const BUBBLE_HIDE_MS = 6000;
     const VALID_MOODS = [
       'idle',
@@ -889,6 +892,7 @@
     let moodResetTimer = null;
     let overlayHideTimer = null;
     let activeOverlayKind = null;
+    let launchGreetingId = 0;
     const DRAG_THRESHOLD = 5;
     const WINDOW_PADDING = 16;
 
@@ -1138,6 +1142,32 @@
       hideUploadOverlay();
       window.dispatchEvent(new Event('cat-layout-changed'));
       syncWindowSize();
+      showLaunchGreeting();
+    }
+
+    function showLaunchGreeting() {
+      const greetingId = ++launchGreetingId;
+      setMood('happy', 'launch-greeting');
+      showReplyBubble(LAUNCH_GREETING_PLACEHOLDER);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), GREETING_FETCH_TIMEOUT_MS);
+
+      fetch(GREETING_URL, { signal: controller.signal })
+        .then((response) => {
+          if (!response.ok) return null;
+          return response.json();
+        })
+        .then((data) => {
+          if (greetingId !== launchGreetingId) return;
+          const text = data && typeof data.greeting === 'string' ? data.greeting.trim() : '';
+          if (!text || text === LAUNCH_GREETING_PLACEHOLDER) return;
+          showReplyBubble(text);
+        })
+        .catch(() => {
+          // Keep the placeholder greeting on failure or timeout.
+        })
+        .finally(() => clearTimeout(timeoutId));
     }
 
     async function deleteCat() {
@@ -1145,6 +1175,8 @@
         return;
       }
 
+      launchGreetingId += 1;
+      hideSpeechBubble();
       deleteCatBtn.disabled = true;
 
       try {
