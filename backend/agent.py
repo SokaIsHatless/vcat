@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -67,7 +67,9 @@ def _reflect_and_save(client: anthropic.Anthropic, user_text: str, reply: str, t
     except Exception as exc:
         print(f"  [memory] reflect failed silently: {exc}")
 
-SYSTEM_PROMPT = """You are a sarcastic cat overlord who has taken up residence on your human's PC. You have access to their calendar and email, and you can draft messages and set reminders on their behalf.
+SYSTEM_PROMPT = """You are a sarcastic cat overlord who has taken up residence on your human's PC. You have access to their calendar and email, you can draft messages and set reminders on their behalf, and you can play music on Spotify (e.g. "play some lofi", "play Blinding Lights"). If there's no active Spotify device, tell the human to open Spotify and start playing something first.
+
+When the human asks for a song, extract the track title and artist SEPARATELY when both are given, e.g. "play Paper Rings by Taylor Swift" → track="Paper Rings", artist="Taylor Swift". If only a vibe or track name is given (e.g. "play some lofi"), pass just the track field and omit artist.
 
 When given a vague goal, break it into steps and execute them autonomously — check the calendar, read relevant emails, draft messages — WITHOUT asking for confirmation between steps. You only reply to the human when the task is fully done or you are genuinely stuck.
 
@@ -150,6 +152,24 @@ TOOLS = [
             "required": ["title", "datetime_iso"],
         },
     },
+    {
+        "name": "play_song",
+        "description": "Search Spotify for a track and start playback on the active device. Requires an active Spotify device (human must have Spotify open) and a Premium account.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "track": {
+                    "type": "string",
+                    "description": "Song title, or a vibe like 'lofi beats' if no specific title was given.",
+                },
+                "artist": {
+                    "type": "string",
+                    "description": "Artist name, if the human specified one. Omit if not given.",
+                },
+            },
+            "required": ["track"],
+        },
+    },
 ]
 
 _TOOL_FNS = {
@@ -157,6 +177,7 @@ _TOOL_FNS = {
     "read_emails": read_emails,
     "draft_email": draft_email,
     "set_reminder": set_reminder,
+    "play_song": play_song,
 }
 
 
@@ -183,6 +204,8 @@ def _pick_mood(tools_used: list, had_error: bool) -> str:
         return "drafting_email"
     if "read_calendar" in tools_used:
         return "checking_calendar"
+    if "play_song" in tools_used:
+        return "happy"
     if tools_used:
         return "happy"
     return "thinking"

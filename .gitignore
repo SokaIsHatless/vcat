@@ -1,6 +1,7 @@
 ﻿# Secrets — NEVER commit
 **/credentials.json
 **/token.json
+**/spotify_token.json
 **/.env
 .env
 

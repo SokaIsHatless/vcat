@@ -2,8 +2,11 @@ import base64
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
+import spotipy
+from spotipy.exceptions import SpotifyException
 from googleapiclient.discovery import build
 from google_auth import get_credentials
+from spotify_auth import get_spotify_token
 
 
 def read_calendar(date: str = None) -> list[dict]:
@@ -98,3 +101,32 @@ def set_reminder(title: str, datetime_iso: str) -> dict:
         },
     ).execute()
     return {"event_id": event["id"]}
+
+
+def play_song(track: str, artist: str = None) -> dict:
+    sp = spotipy.Spotify(auth=get_spotify_token())
+
+    query = f'track:"{track}" artist:"{artist}"' if artist else f'track:"{track}"'
+    print(f"  [play_song] search query: {query}")
+
+    results = sp.search(q=query, type="track", limit=1)
+    tracks = results.get("tracks", {}).get("items", [])
+    if not tracks:
+        return {"error": "couldn't find that song"}
+
+    top = tracks[0]
+    track_uri = top["uri"]
+    track_name = top["name"]
+    artist_name = top["artists"][0]["name"] if top["artists"] else "unknown artist"
+    print(f"  [play_song] matched: {track_name} by {artist_name}")
+
+    try:
+        sp.start_playback(uris=[track_uri])
+    except SpotifyException as exc:
+        if exc.http_status == 404 or "No active device" in str(exc):
+            return {"error": "no active Spotify device — open Spotify and play something first, then try again"}
+        if exc.http_status == 403:
+            return {"error": "Spotify Premium required for playback"}
+        return {"error": f"couldn't start playback: {exc}"}
+
+    return {"playing": f"{track_name} by {artist_name}"}
