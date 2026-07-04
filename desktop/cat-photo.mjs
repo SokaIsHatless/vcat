@@ -49,7 +49,12 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   if (!response.ok) {
     await window.catStorage.deleteCutout();
     resetCatPhoto();
-    throw new Error(`Upload failed (HTTP ${response.status})`);
+    let message = `Upload failed (HTTP ${response.status})`;
+    try {
+      const errBody = await response.json();
+      if (errBody && errBody.error) message = errBody.error;
+    } catch {}
+    throw new Error(message);
   }
 
   const data = await response.json();

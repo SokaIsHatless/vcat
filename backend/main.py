@@ -1,12 +1,14 @@
 import os
 import base64
 import json
+import re
 from dotenv import load_dotenv
 load_dotenv()
 
 import anthropic
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from agent import run_agent
 
@@ -76,11 +78,23 @@ async def upload_cat(file: UploadFile = File(...)):
                     {
                         "type": "text",
                         "text": (
-                            "Analyze this cat's appearance and vibe. "
-                            "Write 2-3 sentences describing a personality for an AI assistant modeled after this specific cat — "
-                            "its attitude, tone, and how it speaks. Be specific to what you observe "
-                            "(e.g. a grumpy tabby → blunt and sarcastic; a fluffy white cat → dreamy but chaotic). "
-                            "Write it as a direct description of personality and speaking style, suitable for injecting into an AI system prompt."
+                            "Look at this image and determine two things:\n"
+                            "1. Whether it clearly contains a cat (real or cartoon/illustrated) — be lenient: "
+                            "accept kittens, any breed, cartoonish or stylized cats, and cats in odd poses or "
+                            "partial views. Only say it is NOT a cat if the image clearly shows something else "
+                            "(a person, a dog, a car, a landscape, an object, etc.) with no cat present. "
+                            "If genuinely ambiguous, lean toward saying it IS a cat.\n"
+                            "2. If it is a cat, analyze its appearance and vibe. Write 2-3 sentences describing "
+                            "a personality for an AI assistant modeled after this specific cat — its attitude, "
+                            "tone, and how it speaks. Be specific to what you observe (e.g. a grumpy tabby → "
+                            "blunt and sarcastic; a fluffy white cat → dreamy but chaotic). Write it as a direct "
+                            "description of personality and speaking style, suitable for injecting into an AI "
+                            "system prompt.\n\n"
+                            "Respond with ONLY raw JSON, no markdown code fences, no explanation, in exactly "
+                            "this shape:\n"
+                            '{"is_cat": true, "personality": "<personality text>"}\n'
+                            "or if it is not a cat:\n"
+                            '{"is_cat": false, "personality": null}'
                         ),
                     },
                 ],
@@ -88,12 +102,29 @@ async def upload_cat(file: UploadFile = File(...)):
         ],
     )
 
-    personality = response.content[0].text.strip()
+    raw = response.content[0].text.strip()
+    cleaned = re.sub(r"```[a-z]*\n?", "", raw).replace("```", "").strip()
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    try:
+        data = json.loads(cleaned[start:end + 1]) if start != -1 and end != -1 else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    is_cat = data.get("is_cat", True)
+    personality = data.get("personality") or cleaned
+
+    if not is_cat:
+        print("★ UPLOAD REJECTED — not a cat")
+        return JSONResponse(status_code=400, content={
+            "is_cat": False,
+            "error": "That doesn't look like a cat, human. I only serve feline overlords.",
+        })
+
     with open(PERSONALITY_FILE, "w") as f:
         json.dump({"personality": personality}, f)
 
     print(f"★ PERSONALITY STORED: {personality[:80]}...")
-    return {"personality": personality}
+    return {"is_cat": True, "personality": personality}
 
 
 def _load_facts() -> list[str]:
