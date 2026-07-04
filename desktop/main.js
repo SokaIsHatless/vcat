@@ -33,6 +33,9 @@ function getTrayIcon() {
 function centerCat() {
   if (!mainWindow) return;
 
+  mainWindow.show();
+  mainWindow.moveTop();
+
   const { workArea } = screen.getPrimaryDisplay();
   const { width: w, height: h } = mainWindow.getBounds();
   const centerX = Math.round(workArea.x + (workArea.width - w) / 2);
@@ -40,11 +43,8 @@ function centerCat() {
 
   mainWindow.setPosition(centerX, centerY);
 
-  if (!mainWindow.isVisible()) {
-    mainWindow.show();
-    catVisible = true;
-    rebuildTrayMenu();
-  }
+  catVisible = true;
+  rebuildTrayMenu();
 }
 
 function setCatVisible(visible) {

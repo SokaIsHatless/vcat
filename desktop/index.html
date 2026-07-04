@@ -53,7 +53,7 @@
       position: relative;
       width: 280px;
       max-width: 280px;
-      max-height: 240px;
+      max-height: 180px;
       margin-bottom: 12px;
       overflow-x: hidden;
       overflow-y: auto;
@@ -790,7 +790,11 @@
     const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
     const LAUNCH_GREETING_PLACEHOLDER = "Well, look who's back. 🐾";
     const GREETING_FETCH_TIMEOUT_MS = 8000;
-    const BUBBLE_HIDE_MS = 6000;
+    const BUBBLE_HIDE_MIN_MS = 3500;
+    const BUBBLE_HIDE_BASE_MS = 1000;
+    const BUBBLE_HIDE_PER_WORD_MS = 350;
+    const BUBBLE_HIDE_MAX_MS = 15000;
+    const BUBBLE_HOVER_RESUME_MS = 2500;
     const VALID_MOODS = [
       'idle',
       'listening',
@@ -1487,6 +1491,18 @@
       }
     }
 
+    function computeBubbleHideMs(text) {
+      const words = text.split(/\s+/).filter(Boolean).length;
+      return Math.min(BUBBLE_HIDE_MAX_MS, Math.max(BUBBLE_HIDE_MIN_MS, BUBBLE_HIDE_BASE_MS + words * BUBBLE_HIDE_PER_WORD_MS));
+    }
+
+    function startBubbleHideTimer(ms) {
+      clearBubbleTimer();
+      bubbleHideTimer = setTimeout(() => {
+        hideSpeechBubble();
+      }, ms);
+    }
+
     function stopThinkingDots() {
       if (thinkingDotsTimer !== null) {
         clearInterval(thinkingDotsTimer);
@@ -1543,10 +1559,7 @@
       speechBubble.classList.add('visible');
       bubbleVisible = true;
 
-      const hideMs = Math.min(Math.max(BUBBLE_HIDE_MS, reply.length * 60), 15000);
-      bubbleHideTimer = setTimeout(() => {
-        hideSpeechBubble();
-      }, hideMs);
+      startBubbleHideTimer(computeBubbleHideMs(reply));
 
       syncWindowSize();
     }
@@ -1661,6 +1674,16 @@
 
     commandPanel.addEventListener('mousedown', (event) => {
       event.stopPropagation();
+    });
+
+    speechBubble.addEventListener('mouseenter', () => {
+      clearBubbleTimer();
+    });
+
+    speechBubble.addEventListener('mouseleave', () => {
+      if (bubbleVisible && !isThinking) {
+        startBubbleHideTimer(BUBBLE_HOVER_RESUME_MS);
+      }
     });
 
     document.addEventListener('keydown', (event) => {
