@@ -196,7 +196,7 @@
       pointer-events: none;
       z-index: 3;
       opacity: 0;
-      transition: opacity 0.35s ease;
+      transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     #mood-overlay.visible {
@@ -205,6 +205,7 @@
 
     #mood-overlay.fading {
       opacity: 0;
+      transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .confused-swirl {
@@ -216,7 +217,7 @@
       margin-left: -26px;
       border: 2px dashed rgba(70, 70, 110, 0.55);
       border-radius: 50%;
-      animation: swirl-spin 2.2s linear infinite;
+      animation: swirl-spin 2.8s linear infinite, overlay-pop-in 0.45s cubic-bezier(0.34, 1.2, 0.64, 1) both;
     }
 
     .mood-q {
@@ -226,12 +227,12 @@
       color: #4a4a5c;
       font-family: system-ui, sans-serif;
       text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-      animation: q-float 2.4s ease-in-out infinite;
+      animation: q-float 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     }
 
-    .mood-q.q1 { top: 6%; left: 16%; }
-    .mood-q.q2 { top: 2%; left: 52%; font-size: 18px; animation-delay: 0.35s; }
-    .mood-q.q3 { top: 10%; left: 74%; font-size: 15px; animation-delay: 0.7s; }
+    .mood-q.q1 { top: 6%; left: 16%; animation-delay: 0s; }
+    .mood-q.q2 { top: 2%; left: 52%; font-size: 18px; animation-delay: 0.3s; }
+    .mood-q.q3 { top: 10%; left: 74%; font-size: 15px; animation-delay: 0.6s; }
 
     .mood-z {
       position: absolute;
@@ -240,12 +241,12 @@
       font-family: Georgia, 'Times New Roman', serif;
       font-style: italic;
       text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
-      animation: z-drift 2.6s ease-in-out infinite;
+      animation: z-drift 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
 
-    .mood-z.z1 { top: 4%; left: 58%; font-size: 22px; }
-    .mood-z.z2 { top: -2%; left: 70%; font-size: 17px; animation-delay: 0.45s; }
-    .mood-z.z3 { top: -8%; left: 80%; font-size: 13px; animation-delay: 0.9s; }
+    .mood-z.z1 { top: 4%; left: 58%; font-size: 22px; animation-delay: 0s; }
+    .mood-z.z2 { top: -2%; left: 70%; font-size: 17px; animation-delay: 0.4s; }
+    .mood-z.z3 { top: -8%; left: 80%; font-size: 13px; animation-delay: 0.85s; }
 
     .mood-angry-mark {
       position: absolute;
@@ -253,30 +254,116 @@
       left: 54%;
       font-size: 30px;
       line-height: 1;
-      animation: angry-pop 0.55s ease-out;
+      animation: angry-pop 0.75s cubic-bezier(0.34, 1.45, 0.64, 1) both;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
     }
 
+    .mood-heart {
+      position: absolute;
+      color: #e85d75;
+      font-family: system-ui, sans-serif;
+      text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+      animation: heart-rise 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    .mood-heart.h1 { top: 18%; left: 22%; font-size: 16px; animation-delay: 0s; }
+    .mood-heart.h2 { top: 10%; left: 48%; font-size: 20px; animation-delay: 0.25s; }
+    .mood-heart.h3 { top: 14%; left: 68%; font-size: 14px; animation-delay: 0.5s; }
+    .mood-heart.h4 { top: 6%; left: 38%; font-size: 12px; animation-delay: 0.75s; }
+
+    .mood-cal {
+      position: absolute;
+      top: 4%;
+      left: 42%;
+      font-size: 26px;
+      line-height: 1;
+      animation: cal-bob 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite, overlay-pop-in 0.45s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+    }
+
+    .mood-cal-clock {
+      position: absolute;
+      top: 2%;
+      left: 62%;
+      font-size: 15px;
+      line-height: 1;
+      animation: cal-bob 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+      animation-delay: 0.35s;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+    }
+
+    .mood-mail {
+      position: absolute;
+      top: 6%;
+      left: 46%;
+      font-size: 26px;
+      line-height: 1;
+      animation: mail-flutter 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite, overlay-pop-in 0.45s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+    }
+
+    .mood-note {
+      position: absolute;
+      font-size: 22px;
+      font-weight: 700;
+      color: #5a4a8a;
+      font-family: Georgia, 'Times New Roman', serif;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+      animation: note-float 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    .mood-note.n1 { top: 8%; left: 28%; animation-delay: 0s; }
+    .mood-note.n2 { top: 2%; left: 52%; font-size: 26px; animation-delay: 0.35s; }
+    .mood-note.n3 { top: 12%; left: 68%; font-size: 18px; animation-delay: 0.7s; }
+
+    @keyframes overlay-pop-in {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
     @keyframes swirl-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.04); }
+      100% { transform: rotate(360deg) scale(1); }
     }
 
     @keyframes q-float {
-      0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
-      50% { transform: translateY(-8px) scale(1.08); opacity: 1; }
+      0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); opacity: 0.8; }
+      50% { transform: translateY(-11px) rotate(4deg) scale(1.1); opacity: 1; }
     }
 
     @keyframes z-drift {
-      0% { transform: translateY(6px); opacity: 0.5; }
-      50% { transform: translateY(-10px); opacity: 1; }
-      100% { transform: translateY(-18px); opacity: 0.4; }
+      0% { transform: translateY(8px) scale(0.9); opacity: 0.45; }
+      45% { transform: translateY(-12px) scale(1.05); opacity: 1; }
+      100% { transform: translateY(-22px) scale(0.95); opacity: 0.35; }
     }
 
     @keyframes angry-pop {
-      0% { transform: scale(0.4); opacity: 0; }
-      70% { transform: scale(1.15); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
+      0% { transform: scale(0.3) rotate(-12deg); opacity: 0; }
+      55% { transform: scale(1.18) rotate(4deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes heart-rise {
+      0% { transform: translateY(10px) scale(0.7); opacity: 0; }
+      20% { opacity: 1; }
+      100% { transform: translateY(-30px) scale(1.12) rotate(-6deg); opacity: 0; }
+    }
+
+    @keyframes cal-bob {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-8px) rotate(3deg); }
+    }
+
+    @keyframes mail-flutter {
+      0%, 100% { transform: translateY(0) rotate(-5deg); }
+      35% { transform: translateY(-7px) rotate(4deg); }
+      70% { transform: translateY(-3px) rotate(-2deg); }
+    }
+
+    @keyframes note-float {
+      0%, 100% { transform: translateY(0) rotate(-8deg) scale(1); opacity: 0.85; }
+      50% { transform: translateY(-12px) rotate(8deg) scale(1.08); opacity: 1; }
     }
 
     @keyframes cat-idle-bob {
@@ -713,7 +800,15 @@
       'checking_calendar',
     ];
 
-    const MOOD_OVERLAY_MOODS = ['confused', 'sleepy', 'angry'];
+    const MOOD_OVERLAY_MOODS = [
+      'confused',
+      'sleepy',
+      'angry',
+      'happy',
+      'checking_calendar',
+      'drafting_email',
+    ];
+    const MOOD_OVERLAY_BODY_MOODS = ['happy', 'checking_calendar', 'drafting_email'];
     const CAT_TRANSFORM_MOODS = [
       'thinking',
       'happy',
@@ -721,7 +816,39 @@
       'drafting_email',
       'checking_calendar',
     ];
-    const MOOD_OVERLAY_DURATION_MS = 3500;
+    const MOOD_OVERLAY_DURATION_MS = 2800;
+    const MOOD_OVERLAY_FADE_MS = 400;
+
+    const MOOD_OVERLAY_TEMPLATES = {
+      confused: `
+        <div class="confused-swirl"></div>
+        <span class="mood-q q1">?</span>
+        <span class="mood-q q2">?</span>
+        <span class="mood-q q3">?</span>
+      `,
+      sleepy: `
+        <span class="mood-z z1">Z</span>
+        <span class="mood-z z2">z</span>
+        <span class="mood-z z3">z</span>
+      `,
+      angry: '<span class="mood-angry-mark">💢</span>',
+      happy: `
+        <span class="mood-heart h1">♥</span>
+        <span class="mood-heart h2">♥</span>
+        <span class="mood-heart h3">♥</span>
+        <span class="mood-heart h4">♥</span>
+      `,
+      checking_calendar: `
+        <span class="mood-cal">📅</span>
+        <span class="mood-cal-clock">🕐</span>
+      `,
+      drafting_email: '<span class="mood-mail">✉️</span>',
+      music: `
+        <span class="mood-note n1">♪</span>
+        <span class="mood-note n2">♫</span>
+        <span class="mood-note n3">♪</span>
+      `,
+    };
 
     const cat = document.getElementById('cat');
     const catWrap = document.getElementById('cat-wrap');
@@ -761,6 +888,7 @@
     let currentMood = 'idle';
     let moodResetTimer = null;
     let overlayHideTimer = null;
+    let activeOverlayKind = null;
     const DRAG_THRESHOLD = 5;
     const WINDOW_PADDING = 16;
 
@@ -813,12 +941,30 @@
       moodOverlay.className = '';
       moodOverlay.setAttribute('aria-hidden', 'true');
       cat.classList.remove('mood-angry');
+      activeOverlayKind = null;
     }
 
     function finishMoodOverlay() {
+      const kind = activeOverlayKind;
       moodOverlay.classList.add('fading');
       setTimeout(() => {
         clearMoodOverlay();
+        if (kind === 'music') {
+          if (MOOD_OVERLAY_BODY_MOODS.includes(currentMood)) {
+            clearMoodResetTimer();
+            const revertMs = MOOD_REVERT_MS[currentMood] ?? 1200;
+            moodResetTimer = setTimeout(() => {
+              if (currentMood !== 'idle') {
+                currentMood = 'idle';
+                VALID_MOODS.forEach((name) => cat.classList.remove(`mood-${name}`));
+                cat.style.filter = '';
+                console.log('[mood] post-music overlay, returning to idle-bob');
+                updateIdleBob();
+              }
+            }, revertMs);
+          }
+          return;
+        }
         if (MOOD_OVERLAY_MOODS.includes(currentMood)) {
           currentMood = 'idle';
           VALID_MOODS.forEach((name) => cat.classList.remove(`mood-${name}`));
@@ -826,30 +972,21 @@
           console.log('[mood] overlay finished, returning to idle-bob');
           updateIdleBob();
         }
-      }, 350);
+      }, MOOD_OVERLAY_FADE_MS);
     }
 
-    function showMoodOverlay(mood) {
+    function showMoodOverlay(kind) {
+      const template = MOOD_OVERLAY_TEMPLATES[kind];
+      if (!template) return;
+
       clearMoodOverlay();
+      activeOverlayKind = kind;
       moodOverlay.classList.add('visible');
       moodOverlay.setAttribute('aria-hidden', 'false');
+      moodOverlay.innerHTML = template;
 
-      if (mood === 'confused') {
-        moodOverlay.innerHTML = `
-          <div class="confused-swirl"></div>
-          <span class="mood-q q1">?</span>
-          <span class="mood-q q2">?</span>
-          <span class="mood-q q3">?</span>
-        `;
-      } else if (mood === 'sleepy') {
-        moodOverlay.innerHTML = `
-          <span class="mood-z z1">Z</span>
-          <span class="mood-z z2">z</span>
-          <span class="mood-z z3">z</span>
-        `;
-      } else if (mood === 'angry') {
+      if (kind === 'angry') {
         cat.classList.add('mood-angry');
-        moodOverlay.innerHTML = '<span class="mood-angry-mark">💢</span>';
       }
 
       overlayHideTimer = setTimeout(finishMoodOverlay, MOOD_OVERLAY_DURATION_MS);
@@ -894,6 +1031,9 @@
 
       if (MOOD_OVERLAY_MOODS.includes(safeMood)) {
         showMoodOverlay(safeMood);
+        if (MOOD_OVERLAY_BODY_MOODS.includes(safeMood)) {
+          cat.classList.add(`mood-${safeMood}`);
+        }
         updateIdleBob();
         return;
       }
@@ -1412,6 +1552,10 @@
         if (requestId !== activeRequestId) return;
 
         applyReplyMood(data.mood);
+        const toolsUsed = Array.isArray(data.tools_used) ? data.tools_used : [];
+        if (toolsUsed.includes('play_song')) {
+          showMoodOverlay('music');
+        }
         showReplyBubble(data.reply || '...');
       } catch (error) {
         console.error('Backend error:', error);
