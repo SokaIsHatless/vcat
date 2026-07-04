@@ -1132,8 +1132,9 @@
       }
 
       console.log('Restoring saved cat (local cutout + backend personality)');
-      cat.src = cutoutUrl;
-      window.catPhoto.markReady(cutoutUrl);
+      const displayUrl = `${cutoutUrl}${cutoutUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+      cat.src = displayUrl;
+      window.catPhoto.markReady(displayUrl);
       hideUploadOverlay();
       window.dispatchEvent(new Event('cat-layout-changed'));
       syncWindowSize();
@@ -1330,6 +1331,8 @@
         hideUploadOverlay();
       } catch (error) {
         console.error('Cat photo error:', error);
+        window.catPhoto.reset();
+        cat.src = 'cat.png';
         setUploadStatus(
           error.message || 'Something went wrong. Try another photo.',
           true,

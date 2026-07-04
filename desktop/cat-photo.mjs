@@ -1,6 +1,7 @@
 import { removeBackground } from './node_modules/@imgly/background-removal/dist/index.mjs';
 
 const UPLOAD_URL = 'http://localhost:8000/upload_cat';
+const PLACEHOLDER_SRC = 'cat.png';
 
 let catPhotoReady = false;
 let catObjectUrl = null;
@@ -17,9 +18,53 @@ export function markCatReady(cutoutUrl) {
   catPhotoReady = true;
 }
 
+async function cleanupRejectedUpload(catImg) {
+  await window.catStorage.deleteCutout();
+  resetCatPhoto();
+  if (catImg) {
+    catImg.src = PLACEHOLDER_SRC;
+  }
+  window.dispatchEvent(new Event('cat-layout-changed'));
+}
+
+function displayCutout(catImg, savedUrl) {
+  const displayUrl = `${savedUrl}${savedUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  markCatReady(displayUrl);
+  catImg.src = displayUrl;
+}
+
 export async function processCatPhoto(file, { onStatus, catImg }) {
   if (!file || !file.type.startsWith('image/')) {
     throw new Error('Please choose an image file (JPEG, PNG, etc.).');
+  }
+
+  onStatus('Analyzing your cat...');
+  const formData = new FormData();
+  formData.append('file', file, file.name);
+
+  let response;
+  try {
+    response = await fetch(UPLOAD_URL, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (error) {
+    await cleanupRejectedUpload(catImg);
+    throw new Error("Can't reach my brain right now, human. Is the backend running on :8000?");
+  }
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok || data?.is_cat === false) {
+    await cleanupRejectedUpload(catImg);
+    throw new Error(
+      (data && data.error) || `Upload failed (HTTP ${response.status})`,
+    );
   }
 
   onStatus('Removing background... (first run may download a model)');
@@ -28,36 +73,22 @@ export async function processCatPhoto(file, { onStatus, catImg }) {
   let cutoutBlob;
   try {
     cutoutBlob = await removeBackground(previewUrl);
+  } catch (error) {
+    await cleanupRejectedUpload(catImg);
+    throw error;
   } finally {
     URL.revokeObjectURL(previewUrl);
   }
 
-  const savedUrl = await window.catStorage.saveCutout(await cutoutBlob.arrayBuffer());
-  markCatReady(savedUrl);
-  catImg.src = savedUrl;
-  window.dispatchEvent(new Event('cat-layout-changed'));
-
-  onStatus('Analyzing your cat...');
-  const formData = new FormData();
-  formData.append('file', file, file.name);
-
-  const response = await fetch(UPLOAD_URL, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    await window.catStorage.deleteCutout();
-    resetCatPhoto();
-    let message = `Upload failed (HTTP ${response.status})`;
-    try {
-      const errBody = await response.json();
-      if (errBody && errBody.error) message = errBody.error;
-    } catch {}
-    throw new Error(message);
+  try {
+    const savedUrl = await window.catStorage.saveCutout(await cutoutBlob.arrayBuffer());
+    displayCutout(catImg, savedUrl);
+    window.dispatchEvent(new Event('cat-layout-changed'));
+  } catch (error) {
+    await cleanupRejectedUpload(catImg);
+    throw error;
   }
 
-  const data = await response.json();
   console.log('Cat personality:', data.personality);
 
   onStatus('');
