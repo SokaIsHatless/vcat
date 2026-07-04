@@ -2,6 +2,8 @@ import os
 import base64
 import json
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -65,19 +67,30 @@ def get_greeting():
             else "Nothing specific yet — greet them warmly anyway."
         )
 
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         response = client.messages.create(
             model="claude-sonnet-4-5",
             max_tokens=128,
+            temperature=1.0,
             messages=[{
                 "role": "user",
                 "content": (
                     f"You are a cat AI assistant with this personality: {personality}\n\n"
                     f"What you know about this human: {facts_block}\n\n"
-                    "Write a brief launch greeting (1-2 sentences max) welcoming them back "
-                    "to their desktop. If you know their name or preferences from memory, "
-                    "weave them in naturally. Stay in character — dry, witty, cat overlord energy. "
-                    "No asterisk action narration. Return ONLY the greeting text, nothing else."
+                    f"The current date and time is {now.strftime('%A, %B %d, %Y at %I:%M %p')} (IST).\n\n"
+                    "Write a brief launch greeting (1-2 sentences max) welcoming them back to their desktop.\n\n"
+                    "STYLE RULES: Never use asterisk action narration (*purrs*, *tail swish*, *stretches*, "
+                    "etc.) — you speak in words only, you do not describe your own movements. Be dry, witty, "
+                    "and economical. One sharp line beats a rambling greeting.\n\n"
+                    "VARY YOUR GREETINGS — don't always start with the user's name or 'welcome back'. Be "
+                    "unpredictable and different each time. Rotate between different moods: tease the human "
+                    "about something you know about them, comment dryly on the time of day, reference a "
+                    "specific fact from memory, act reluctantly affectionate, or just be flatly sassy with no "
+                    "specific hook at all. If you know their name or a preference, you may weave it in "
+                    "naturally — but not every time.\n\n"
+                    "Return ONLY the greeting text, nothing else."
                 ),
             }],
         )
