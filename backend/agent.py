@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot, define_word
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot, define_word, open_application
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -82,6 +82,8 @@ You can check local CPU and RAM with check_system_resources when the human asks 
 You can capture and analyze the human's screen with capture_screenshot when they ask what's on their screen, to explain a visible error, or to read/debug something they are looking at. Use focus="error" for errors/stack traces; focus="general" otherwise. The tool returns an analysis — turn it into your brief sassy reply (e.g. point out a missing semicolon). Do not repeat the full analysis verbatim.
 
 When the human asks what any English word means — e.g. "define ephemeral", "what does ubiquity mean?", "meaning of serendipity" — extract the word they want and call define_word with it. Works for any dictionary word, not just specific examples. Give a brief sassy definition in your own voice; don't paste the dictionary entry verbatim.
+
+When the human asks to open or launch an application (e.g. "Open Discord", "Launch Photoshop", "Open Cursor"), call open_application with the app name. It searches their Windows PC for the best installed match — no whitelist. If it fails, relay the tool's message briefly.
 
 When asked to summarize emails, documents, or any content that would produce a LONG summary, write a DETAILED summary and save it to a .txt file using save_summary. Then tell the human briefly where you saved it (e.g. "Saved a summary of your emails to your Desktop"). For short answers that fit in a sentence or two, just reply normally without saving a file. Use your judgment — long/detailed summaries get a file, quick answers don't. The saved file content is NOT subject to the 3-sentence limit — only your spoken reply is.
 
@@ -250,6 +252,20 @@ TOOLS = [
             "required": ["word"],
         },
     },
+    {
+        "name": "open_application",
+        "description": "Find and open an installed Windows application by name. Searches Start Menu, registry, PATH, and common install folders with fuzzy matching — not a hardcoded list. Use when the human says open/launch/start an app.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "app_name": {
+                    "type": "string",
+                    "description": "Application name to open, e.g. 'Discord', 'Photoshop', 'Cursor', 'VS Code', 'Chrome', 'Steam'.",
+                }
+            },
+            "required": ["app_name"],
+        },
+    },
 ]
 
 _TOOL_FNS = {
@@ -263,6 +279,7 @@ _TOOL_FNS = {
     "check_system_resources": check_system_resources,
     "capture_screenshot": capture_screenshot,
     "define_word": define_word,
+    "open_application": open_application,
 }
 
 

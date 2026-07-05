@@ -11,6 +11,7 @@ from spotipy.exceptions import SpotifyException
 from googleapiclient.discovery import build
 from google_auth import get_credentials
 from spotify_auth import get_spotify_token
+from app_finder import open_application
 
 
 def read_calendar(date: str = None) -> list[dict]:
