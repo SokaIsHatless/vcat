@@ -1577,6 +1577,7 @@
     let launchCenterDone = false;
     let voiceSelecting = false;
     let currentReplyAudio = null;
+    let currentReplyObjectUrl = null;
 
     const appEl = document.getElementById('app');
 
@@ -1974,6 +1975,13 @@
       }
     }
 
+    function revokeReplyObjectUrl() {
+      if (currentReplyObjectUrl) {
+        URL.revokeObjectURL(currentReplyObjectUrl);
+        currentReplyObjectUrl = null;
+      }
+    }
+
     function detachReplyAudioListeners(audio) {
       if (!audio || !audio._bubbleHandlers) return;
       const handlers = audio._bubbleHandlers;
@@ -1983,11 +1991,14 @@
     }
 
     function stopReplyAudio() {
-      if (!currentReplyAudio) return;
-      detachReplyAudioListeners(currentReplyAudio);
-      currentReplyAudio.pause();
-      currentReplyAudio.currentTime = 0;
-      currentReplyAudio = null;
+      replyAudioGeneration += 1;
+      if (currentReplyAudio) {
+        detachReplyAudioListeners(currentReplyAudio);
+        currentReplyAudio.pause();
+        currentReplyAudio.currentTime = 0;
+        currentReplyAudio = null;
+      }
+      revokeReplyObjectUrl();
       bubbleAudioHidePending = false;
     }
 
@@ -2030,15 +2041,73 @@
       startBubbleHideTimer(BUBBLE_POST_AUDIO_HIDE_MS);
     }
 
-    function startBubbleAudioWatchdog(fallbackText) {
+    function startBubbleAudioWatchdog(fallbackText, audio) {
       clearBubbleAudioWatchdog();
-      bubbleAudioWatchdogTimer = setTimeout(() => {
-        bubbleAudioWatchdogTimer = null;
-        if (!bubbleVisible || !bubbleAudioHidePending) return;
-        console.warn('[audio] bubble watchdog — falling back to text-based hide');
-        stopReplyAudio();
-        scheduleBubbleFallbackHide(fallbackText);
-      }, BUBBLE_HIDE_MAX_MS);
+
+      function armWatchdog(delayMs) {
+        bubbleAudioWatchdogTimer = setTimeout(() => {
+          bubbleAudioWatchdogTimer = null;
+          if (!bubbleVisible || !bubbleAudioHidePending) return;
+
+          if (isReplyAudioPlaying()) {
+            const remainingMs = Number.isFinite(audio?.duration) && audio.duration > 0
+              ? Math.max(3000, ((audio.duration - audio.currentTime) * 1000) + 3000)
+              : 30000;
+            armWatchdog(remainingMs);
+            return;
+          }
+
+          if (currentReplyAudio && currentReplyAudio.ended) {
+            scheduleBubbleHideAfterAudio();
+            return;
+          }
+
+          console.warn('[audio] bubble watchdog — playback stalled, falling back to text-based hide');
+          scheduleBubbleFallbackHide(fallbackText);
+        }, delayMs);
+      }
+
+      const durationMs = Number.isFinite(audio?.duration) && audio.duration > 0
+        ? (audio.duration * 1000) + 5000
+        : computeBubbleHideMs(fallbackText);
+      armWatchdog(Math.max(durationMs, 10000));
+    }
+
+    function waitForAudioReady(audio, timeoutMs = 60000) {
+      return new Promise((resolve, reject) => {
+        if (audio.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+          resolve();
+          return;
+        }
+
+        let settled = false;
+        const finish = (ok) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          audio.removeEventListener('canplaythrough', onReady);
+          audio.removeEventListener('error', onError);
+          if (ok) {
+            resolve();
+          } else {
+            reject(new Error('audio load failed'));
+          }
+        };
+
+        const onReady = () => finish(true);
+        const onError = () => finish(false);
+        const timer = setTimeout(() => {
+          if (audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            finish(true);
+            return;
+          }
+          finish(false);
+        }, timeoutMs);
+
+        audio.addEventListener('canplaythrough', onReady, { once: true });
+        audio.addEventListener('error', onError, { once: true });
+        audio.load();
+      });
     }
 
     function isAudioMuted() {
@@ -2068,47 +2137,77 @@
       setAudioMuted(!isAudioMuted());
     }
 
-    function playReplyAudio(audioUrl, fallbackText = '') {
+    async function playReplyAudio(audioUrl, fallbackText = '') {
       if (!audioUrl || isAudioMuted()) return false;
 
       stopReplyAudio();
       clearBubbleScheduling();
 
-      const generation = ++replyAudioGeneration;
-      const audio = new Audio(`${audioUrl}?t=${Date.now()}`);
-      currentReplyAudio = audio;
+      const generation = replyAudioGeneration;
       bubbleAudioHidePending = true;
-      startBubbleAudioWatchdog(fallbackText);
 
-      const handlers = {
-        onEnded: () => {
-          if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
-          detachReplyAudioListeners(audio);
+      let objectUrl = null;
+      try {
+        const response = await fetch(`${audioUrl}?t=${Date.now()}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        if (generation !== replyAudioGeneration) return false;
+        if (!blob.size) {
+          throw new Error('empty audio blob');
+        }
+
+        objectUrl = URL.createObjectURL(blob);
+        currentReplyObjectUrl = objectUrl;
+        const audio = new Audio(objectUrl);
+        currentReplyAudio = audio;
+
+        const handlers = {
+          onEnded: () => {
+            if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
+            detachReplyAudioListeners(audio);
+            currentReplyAudio = null;
+            revokeReplyObjectUrl();
+            scheduleBubbleHideAfterAudio();
+          },
+          onError: () => {
+            if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
+            console.warn('[audio] playback error — falling back to text-based hide');
+            detachReplyAudioListeners(audio);
+            currentReplyAudio = null;
+            revokeReplyObjectUrl();
+            scheduleBubbleFallbackHide(fallbackText);
+          },
+        };
+
+        audio._bubbleHandlers = handlers;
+        audio.addEventListener('ended', handlers.onEnded);
+        audio.addEventListener('error', handlers.onError);
+
+        await waitForAudioReady(audio);
+        if (generation !== replyAudioGeneration) return false;
+
+        startBubbleAudioWatchdog(fallbackText, audio);
+        await audio.play();
+        return true;
+      } catch (error) {
+        if (generation !== replyAudioGeneration) return false;
+        console.warn('[audio] failed to load or play reply audio — falling back to text-based hide', error);
+        if (currentReplyAudio) {
+          detachReplyAudioListeners(currentReplyAudio);
           currentReplyAudio = null;
-          scheduleBubbleHideAfterAudio();
-        },
-        onError: () => {
-          if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
-          console.warn('[audio] playback error — falling back to text-based hide');
-          detachReplyAudioListeners(audio);
-          currentReplyAudio = null;
-          scheduleBubbleFallbackHide(fallbackText);
-        },
-      };
-
-      audio._bubbleHandlers = handlers;
-      audio.addEventListener('ended', handlers.onEnded);
-      audio.addEventListener('error', handlers.onError);
-
-      audio.play().catch((error) => {
-        if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
-        console.warn('[audio] play() rejected — falling back to text-based hide', error);
-        detachReplyAudioListeners(audio);
-        currentReplyAudio = null;
+        }
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          if (currentReplyObjectUrl === objectUrl) {
+            currentReplyObjectUrl = null;
+          }
+        }
         scheduleBubbleFallbackHide(fallbackText);
-      });
-
-      return true;
+        return false;
+      }
     }
 
     async function selectVoice(category) {
