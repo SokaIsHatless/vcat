@@ -1,0 +1,2 @@
+# Keep pip-readable text files in UTF-8 (not UTF-16).
+backend/requirements.txt text eol=lf working-tree-encoding=UTF-8
