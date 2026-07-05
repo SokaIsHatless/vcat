@@ -250,3 +250,90 @@ def check_system_resources() -> dict:
         "high_cpu": high_cpu,
         "alert": alert,
     }
+
+
+SCREENSHOT_MAX_EDGE = 1568
+VISION_MODEL = "claude-sonnet-4-5"
+
+SCREENSHOT_FOCUS_PROMPTS = {
+    "general": (
+        "This is a screenshot of the user's Windows desktop. Describe what is on screen: "
+        "open apps, visible text, and anything notable. Be specific and concise."
+    ),
+    "error": (
+        "This is a screenshot of the user's screen. Look for error messages, compiler output, "
+        "IDE red squiggles, dialog boxes, or stack traces. Explain what is wrong in plain "
+        "language and the most likely fix if you can see it."
+    ),
+}
+
+
+def _resize_screenshot(img):
+    from PIL import Image
+
+    width, height = img.size
+    longest = max(width, height)
+    if longest <= SCREENSHOT_MAX_EDGE:
+        return img
+    scale = SCREENSHOT_MAX_EDGE / longest
+    return img.resize((int(width * scale), int(height * scale)), Image.Resampling.LANCZOS)
+
+
+def capture_screenshot(focus: str = "general") -> dict:
+    """Capture the desktop with pyautogui and analyze via Claude vision."""
+    import io
+    import os
+
+    import anthropic
+    import pyautogui
+
+    focus_key = focus if focus in SCREENSHOT_FOCUS_PROMPTS else "general"
+
+    try:
+        img = pyautogui.screenshot()
+    except Exception as exc:
+        return {"captured": False, "error": f"Screenshot failed: {exc}"}
+
+    img = _resize_screenshot(img)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    image_b64 = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"captured": False, "error": "ANTHROPIC_API_KEY not set"}
+
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=VISION_MODEL,
+        max_tokens=512,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": image_b64,
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": SCREENSHOT_FOCUS_PROMPTS[focus_key],
+                },
+            ],
+        }],
+    )
+    analysis = "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
+
+    if not analysis:
+        return {"captured": False, "error": "Vision analysis returned no text"}
+
+    return {
+        "captured": True,
+        "focus": focus_key,
+        "analysis": analysis,
+    }

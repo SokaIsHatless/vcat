@@ -357,6 +357,21 @@
       filter: drop-shadow(0 2px 4px rgba(255, 120, 0, 0.45));
     }
 
+    .mood-eyes {
+      position: absolute;
+      top: 2%;
+      left: 44%;
+      font-size: 28px;
+      line-height: 1;
+      animation: eyes-look 2s ease-in-out infinite, overlay-pop-in 0.45s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+    }
+
+    @keyframes eyes-look {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(3px); }
+    }
+
     @keyframes fire-flicker {
       0%, 100% { transform: scale(1) translateY(0); opacity: 1; }
       50% { transform: scale(1.08) translateY(-2px); opacity: 0.92; }
@@ -1177,6 +1192,7 @@
         <span class="mood-note n3">♪</span>
       `,
       system_fire: '<span class="mood-fire">🔥</span>',
+      screenshot: '<span class="mood-eyes">👀</span>',
     };
 
     const cat = document.getElementById('cat');
@@ -1327,6 +1343,10 @@
 
     function showFireOverlay() {
       showMoodOverlay('system_fire');
+    }
+
+    function showScreenshotOverlay() {
+      showMoodOverlay('screenshot');
     }
 
     function normalizeMood(mood) {
@@ -2262,6 +2282,9 @@
         }
         if (data.system_alert && data.system_alert.overlay === 'fire') {
           showFireOverlay();
+        }
+        if (data.screenshot && data.screenshot.analyzed) {
+          showScreenshotOverlay();
         }
         const reply = data.reply || '...';
         addToSessionHistory(text, reply);

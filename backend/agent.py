@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -78,6 +78,8 @@ You draft emails. You NEVER send them. Every reply ends with ONE short sassy rem
 You can start focus/Pomodoro timers with start_timer (default 25 minutes). When the human asks for a timer or pomodoro, call start_timer with the requested minutes, then give a brief sassy acknowledgment — the hourglass overlay and break announcement are handled automatically by the app.
 
 You can check local CPU and RAM with check_system_resources when the human asks how their PC is doing, about memory, CPU usage, or system performance. Report the numbers briefly. If high_ram is true, be dramatic — e.g. "Your RAM is screaming." — the app shows a fire overlay automatically. If usage is normal, stay smug and reassuring.
+
+You can capture and analyze the human's screen with capture_screenshot when they ask what's on their screen, to explain a visible error, or to read/debug something they are looking at. Use focus="error" for errors/stack traces; focus="general" otherwise. The tool returns an analysis — turn it into your brief sassy reply (e.g. point out a missing semicolon). Do not repeat the full analysis verbatim.
 
 When asked to summarize emails, documents, or any content that would produce a LONG summary, write a DETAILED summary and save it to a .txt file using save_summary. Then tell the human briefly where you saved it (e.g. "Saved a summary of your emails to your Desktop"). For short answers that fit in a sentence or two, just reply normally without saving a file. Use your judgment — long/detailed summaries get a file, quick answers don't. The saved file content is NOT subject to the 3-sentence limit — only your spoken reply is.
 
@@ -217,6 +219,21 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "capture_screenshot",
+        "description": "Capture the human's Windows screen and analyze it with vision. Use when they ask what's on their screen, to explain a visible error, debug on-screen code, or read something they are looking at.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "focus": {
+                    "type": "string",
+                    "enum": ["general", "error"],
+                    "description": "general = describe what's on screen. error = find and explain visible errors, stack traces, or IDE problems.",
+                }
+            },
+            "required": [],
+        },
+    },
 ]
 
 _TOOL_FNS = {
@@ -228,6 +245,7 @@ _TOOL_FNS = {
     "save_summary": save_summary,
     "start_timer": start_timer,
     "check_system_resources": check_system_resources,
+    "capture_screenshot": capture_screenshot,
 }
 
 
@@ -258,6 +276,8 @@ def _pick_mood(tools_used: list, had_error: bool) -> str:
         return "happy"
     if "start_timer" in tools_used:
         return "listening"
+    if "capture_screenshot" in tools_used:
+        return "thinking"
     if tools_used:
         return "happy"
     return "thinking"
@@ -288,6 +308,7 @@ def run_agent(user_text: str) -> dict:
     agent_mood: str | None = None
     timer_info: dict | None = None
     system_alert: dict | None = None
+    screenshot_info: dict | None = None
 
     while True:
         response = client.messages.create(
@@ -325,6 +346,8 @@ def run_agent(user_text: str) -> dict:
                     timer_info = {"minutes": result["minutes"]}
                 if block.name == "check_system_resources" and isinstance(result, dict) and result.get("alert"):
                     system_alert = result["alert"]
+                if block.name == "capture_screenshot" and isinstance(result, dict) and result.get("captured"):
+                    screenshot_info = {"analyzed": True, "focus": result.get("focus", "general")}
                 content = json.dumps(result)
             except Exception as exc:
                 had_error = True
@@ -360,6 +383,8 @@ def run_agent(user_text: str) -> dict:
         result["timer"] = timer_info
     if system_alert:
         result["system_alert"] = system_alert
+    if screenshot_info:
+        result["screenshot"] = screenshot_info
     _reflect_and_save(client, user_text, reply, tools_used)
     return result
 
