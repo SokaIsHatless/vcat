@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot, define_word
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -80,6 +80,8 @@ You can start focus/Pomodoro timers with start_timer (default 25 minutes). When 
 You can check local CPU and RAM with check_system_resources when the human asks how their PC is doing, about memory, CPU usage, or system performance. Report the numbers briefly. If high_ram is true, be dramatic — e.g. "Your RAM is screaming." — the app shows a fire overlay automatically. If usage is normal, stay smug and reassuring.
 
 You can capture and analyze the human's screen with capture_screenshot when they ask what's on their screen, to explain a visible error, or to read/debug something they are looking at. Use focus="error" for errors/stack traces; focus="general" otherwise. The tool returns an analysis — turn it into your brief sassy reply (e.g. point out a missing semicolon). Do not repeat the full analysis verbatim.
+
+When the human asks what any English word means — e.g. "define ephemeral", "what does ubiquity mean?", "meaning of serendipity" — extract the word they want and call define_word with it. Works for any dictionary word, not just specific examples. Give a brief sassy definition in your own voice; don't paste the dictionary entry verbatim.
 
 When asked to summarize emails, documents, or any content that would produce a LONG summary, write a DETAILED summary and save it to a .txt file using save_summary. Then tell the human briefly where you saved it (e.g. "Saved a summary of your emails to your Desktop"). For short answers that fit in a sentence or two, just reply normally without saving a file. Use your judgment — long/detailed summaries get a file, quick answers don't. The saved file content is NOT subject to the 3-sentence limit — only your spoken reply is.
 
@@ -234,6 +236,20 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "define_word",
+        "description": "Look up the definition of any English word using the Free Dictionary API. Use whenever the human asks what a word means or says define/meaning of <word>.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "word": {
+                    "type": "string",
+                    "description": "The English word to look up (any word), e.g. 'ephemeral', 'ubiquity', 'serendipity'.",
+                }
+            },
+            "required": ["word"],
+        },
+    },
 ]
 
 _TOOL_FNS = {
@@ -246,6 +262,7 @@ _TOOL_FNS = {
     "start_timer": start_timer,
     "check_system_resources": check_system_resources,
     "capture_screenshot": capture_screenshot,
+    "define_word": define_word,
 }
 
 

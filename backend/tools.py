@@ -3,7 +3,9 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
+from urllib.parse import quote
 
+import requests
 import spotipy
 from spotipy.exceptions import SpotifyException
 from googleapiclient.discovery import build
@@ -249,6 +251,70 @@ def check_system_resources() -> dict:
         "high_ram": high_ram,
         "high_cpu": high_cpu,
         "alert": alert,
+    }
+
+
+DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/"
+_LOOKUP_STOP_WORDS = frozenset({
+    "a", "an", "the", "of", "is", "it", "for", "please",
+    "define", "definition", "meaning", "mean", "means", "word", "what", "does",
+})
+
+
+def _extract_lookup_word(raw: str) -> str:
+    """Pull the target English word from a bare word or short phrase."""
+    tokens = re.findall(r"[a-zA-Z][\w'-]*", raw.strip())
+    if not tokens:
+        return ""
+    filtered = [t for t in tokens if t.lower() not in _LOOKUP_STOP_WORDS]
+    target = filtered[-1] if filtered else tokens[-1]
+    return re.sub(r"[^\w'-]", "", target.lower())
+
+
+def define_word(word: str) -> dict:
+    """Look up any English word via the Free Dictionary API."""
+    cleaned = _extract_lookup_word(word)
+    if not cleaned:
+        return {"found": False, "error": "No word provided"}
+
+    url = f"{DICTIONARY_API_URL}{quote(cleaned)}"
+    try:
+        response = requests.get(url, timeout=10)
+    except requests.RequestException as exc:
+        return {"found": False, "word": cleaned, "error": f"Dictionary lookup failed: {exc}"}
+
+    if response.status_code == 404:
+        return {"found": False, "word": cleaned, "error": "Word not found"}
+    if not response.ok:
+        return {"found": False, "word": cleaned, "error": f"HTTP {response.status_code}"}
+
+    try:
+        data = response.json()
+    except ValueError:
+        return {"found": False, "word": cleaned, "error": "Invalid dictionary response"}
+
+    if not isinstance(data, list) or not data:
+        return {"found": False, "word": cleaned, "error": "Word not found"}
+
+    entry = data[0]
+    meanings = []
+    for meaning in entry.get("meanings", [])[:3]:
+        definitions = [
+            item.get("definition", "")
+            for item in meaning.get("definitions", [])[:2]
+            if item.get("definition")
+        ]
+        if definitions:
+            meanings.append({
+                "part_of_speech": meaning.get("partOfSpeech"),
+                "definitions": definitions,
+            })
+
+    return {
+        "found": True,
+        "word": entry.get("word", cleaned),
+        "phonetic": entry.get("phonetic"),
+        "meanings": meanings,
     }
 
 
