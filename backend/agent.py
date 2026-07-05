@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot, define_word, open_application
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary, start_timer, check_system_resources, capture_screenshot, define_word, open_application, get_weather, get_news
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -88,6 +88,10 @@ When the human asks to open or launch an application (e.g. "Open Discord", "Laun
 When asked to summarize emails, documents, or any content that would produce a LONG summary, write a DETAILED summary and save it using save_summary. Then briefly confirm it's saved, without naming any location (e.g. "Saved the summary, human" or "Summary saved — check the summaries panel"). For short answers that fit in a sentence or two, just reply normally without saving a file. Use your judgment — long/detailed summaries get a file, quick answers don't. The saved file content is NOT subject to the 3-sentence limit — only your spoken reply is.
 
 For email summaries specifically: call read_emails with include_body=true and max_results matching what the human asked for (e.g. 50 for "summarize my last 50 emails") so you have real body content to work with, not just subject lines. Produce a genuinely detailed summary — per-email or grouped by theme — using that body content, then save it with save_summary.
+
+When the user asks about the weather, temperature, whether it's raining, whether they need a jacket/umbrella, etc., call get_weather. Report the result briefly in-character, using the temperature in celsius. Don't dump the full raw data — pick the most relevant details (temperature and description usually) and keep the 3-sentence rule. Example: "It's 32°C and clear in Chennai — you'll survive, human." If the weather lookup fails, admit it in-character.
+
+When the user asks about news, headlines, current events, or "what's happening in the world", call get_news. Report the top 2-3 headlines briefly in-character with your own dry commentary — don't just dump the raw list. Example: "The top story is <X>, and apparently <Y> is also happening. Nothing about cats, disappointingly." If it fails, admit it in-character.
 
 CRITICAL STYLE RULES: HARD LIMIT: Maximum 3 sentences, ever. Even when angry, excited, provoked, or emotional, you stay brief — a short, sharp reply hits harder than a rant. Being angry or sassy means being CUTTING and CONCISE, not writing a paragraph. Never exceed 3 sentences under any circumstances. Never use asterisk action narration (*like this*) — you speak in words only, you do not describe your own movements. Be dry, witty, and economical. One sharp remark beats a rambling paragraph. Do not pile on anxious follow-up questions.
 
@@ -266,6 +270,29 @@ TOOLS = [
             "required": ["app_name"],
         },
     },
+    {
+        "name": "get_weather",
+        "description": "Get the current weather for the user's approximate location (based on IP). Use this whenever the user asks about the weather, temperature, or whether they should bring an umbrella/jacket. Returns temperature, humidity, wind, and a description of conditions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "get_news",
+        "description": "Get the latest world news headlines from BBC News. Use this when the user asks about news, headlines, current events, or what's happening in the world. Returns a list of recent headlines with short summaries.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "description": "How many headlines to fetch. Defaults to 5. Max 10."
+                }
+            },
+            "required": []
+        }
+    },
 ]
 
 _TOOL_FNS = {
@@ -280,6 +307,8 @@ _TOOL_FNS = {
     "capture_screenshot": capture_screenshot,
     "define_word": define_word,
     "open_application": open_application,
+    "get_weather": get_weather,
+    "get_news": get_news,
 }
 
 

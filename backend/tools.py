@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from urllib.parse import quote
 
+import feedparser
 import requests
 import spotipy
 from spotipy.exceptions import SpotifyException
@@ -367,6 +368,144 @@ def define_word(word: str) -> dict:
         "word": entry.get("word", cleaned),
         "phonetic": entry.get("phonetic"),
         "meanings": meanings,
+    }
+
+
+IP_GEOLOCATION_API_URL = "http://ip-api.com/json/"
+WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
+
+_WEATHER_CODE_DESCRIPTIONS = {
+    0: "clear sky",
+    1: "mainly clear",
+    2: "partly cloudy",
+    3: "overcast",
+    45: "foggy",
+    48: "foggy",
+    51: "light drizzle",
+    53: "drizzle",
+    55: "heavy drizzle",
+    61: "light rain",
+    63: "moderate rain",
+    65: "heavy rain",
+    71: "light snow",
+    73: "moderate snow",
+    75: "heavy snow",
+    80: "rain showers",
+    81: "rain showers",
+    82: "violent rain showers",
+    95: "thunderstorm",
+    96: "thunderstorm with hail",
+    99: "thunderstorm with hail",
+}
+
+
+def _describe_weather_code(code: int) -> str:
+    """Map an Open-Meteo WMO weather code to a human-friendly description."""
+    return _WEATHER_CODE_DESCRIPTIONS.get(code, "unusual weather")
+
+
+def get_weather() -> dict:
+    """Get current weather for the human's approximate location, based on IP geolocation."""
+    try:
+        geo_response = requests.get(IP_GEOLOCATION_API_URL, timeout=5)
+    except requests.RequestException:
+        return {"error": "couldn't figure out where you are, human"}
+
+    if not geo_response.ok:
+        return {"error": "couldn't figure out where you are, human"}
+
+    try:
+        geo_data = geo_response.json()
+    except ValueError:
+        return {"error": "couldn't figure out where you are, human"}
+
+    lat = geo_data.get("lat")
+    lon = geo_data.get("lon")
+    city = geo_data.get("city")
+    country = geo_data.get("country")
+    if lat is None or lon is None:
+        return {"error": "couldn't figure out where you are, human"}
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+        "temperature_unit": "celsius",
+    }
+    try:
+        weather_response = requests.get(WEATHER_API_URL, params=params, timeout=5)
+    except requests.RequestException as exc:
+        return {"error": f"weather lookup failed: {exc}"}
+
+    if not weather_response.ok:
+        return {"error": f"weather lookup failed: HTTP {weather_response.status_code}"}
+
+    try:
+        weather_data = weather_response.json()
+    except ValueError:
+        return {"error": "invalid weather response"}
+
+    current = weather_data.get("current")
+    if not isinstance(current, dict):
+        return {"error": "invalid weather response"}
+
+    try:
+        temperature_c = float(current["temperature_2m"])
+        humidity = int(current["relative_humidity_2m"])
+        wind_kmh = float(current["wind_speed_10m"])
+        weather_code = int(current["weather_code"])
+    except (KeyError, TypeError, ValueError):
+        return {"error": "invalid weather response"}
+
+    return {
+        "city": city,
+        "country": country,
+        "temperature_c": temperature_c,
+        "humidity": humidity,
+        "wind_kmh": wind_kmh,
+        "description": _describe_weather_code(weather_code),
+    }
+
+
+NEWS_RSS_URL = "http://feeds.bbci.co.uk/news/world/rss.xml"
+
+
+def _clean_summary(text: str) -> str:
+    cleaned = re.sub(r"<[^>]+>", "", text or "").strip()
+    return cleaned[:200]
+
+
+def get_news(count: int = 5) -> dict:
+    """Get the latest BBC World News headlines via RSS."""
+    count = max(1, min(count, 10))
+
+    try:
+        response = requests.get(NEWS_RSS_URL, timeout=5)
+    except requests.RequestException:
+        return {"error": "couldn't grab the news, human — the internet's being uncooperative"}
+
+    if not response.ok:
+        return {"error": "couldn't grab the news, human — the internet's being uncooperative"}
+
+    try:
+        feed = feedparser.parse(response.content)
+    except Exception:
+        return {"error": "couldn't grab the news, human — the internet's being uncooperative"}
+
+    if not feed.entries:
+        return {"error": "couldn't grab the news, human — the internet's being uncooperative"}
+
+    headlines = [
+        {
+            "title": entry.get("title", ""),
+            "summary": _clean_summary(entry.get("summary", entry.get("description", ""))),
+        }
+        for entry in feed.entries[:count]
+    ]
+
+    return {
+        "source": "BBC World News",
+        "headlines": headlines,
     }
 
 

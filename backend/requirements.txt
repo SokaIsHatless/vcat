@@ -49,3 +49,4 @@ edge-tts==7.2.8
 psutil==7.0.0
 pyautogui==0.9.54
 Pillow==11.2.1
+feedparser==6.0.12
