@@ -91,19 +91,18 @@ CAT_SOUND_SPOKEN = {
 }
 CAT_SOUND_PROBABILITY = 0.175
 
-SERIOUS_MARKERS = (
-    "sorry",
-    "apolog",
-    "unfortunately",
-    "my bad",
-    "i'm afraid",
-    "something broke",
-    "even cats have limits",
-    "sincerely",
-    "serious",
-    "urgent",
-    "important:",
-    "i owe you an apology",
+# Apologetic / serious openings only — not loose substring matches anywhere in the reply.
+APOLOGY_OPENING_RE = re.compile(
+    r"^(?:"
+    r"sorry\b|"
+    r"i'?m sorry\b|"
+    r"i apologize\b|"
+    r"my bad\b|"
+    r"unfortunately\b|"
+    r"i'?m afraid\b|"
+    r"i owe you an apology\b"
+    r")",
+    re.IGNORECASE,
 )
 
 
@@ -199,29 +198,35 @@ def _is_error_reply(text: str) -> bool:
 
 
 def _is_serious_or_apologetic(text: str) -> bool:
-    lower = text.lower()
-    return any(marker in lower for marker in SERIOUS_MARKERS)
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if _is_error_reply(stripped):
+        return True
+    return bool(APOLOGY_OPENING_RE.match(stripped))
 
 
 def _word_count(text: str) -> int:
     return len([word for word in text.split() if word])
 
 
-def _maybe_prepend_cat_sound(text: str) -> str:
+def _maybe_prepend_cat_sound(spoken: str, *, source_text: str | None = None) -> str:
+    check_text = source_text or spoken
+
     if random.random() >= CAT_SOUND_PROBABILITY:
-        return text
-    if _starts_with_cat_sound(text):
-        return text
-    if _is_error_reply(text):
-        return text
-    if _word_count(text) <= 2:
-        return text
-    if _is_serious_or_apologetic(text):
-        return text
+        return spoken
+    if _starts_with_cat_sound(check_text):
+        return spoken
+    if _is_error_reply(check_text):
+        return spoken
+    if _word_count(check_text) <= 2:
+        return spoken
+    if _is_serious_or_apologetic(check_text):
+        return spoken
 
     sound = random.choice(CAT_SOUNDS)
     spoken_sound = CAT_SOUND_SPOKEN[sound]
-    return f"{spoken_sound} {text}"
+    return f"{spoken_sound} ... {spoken}"
 
 
 def _apply_spoken_style(text: str, spoken_style: str) -> str:
@@ -262,7 +267,7 @@ def prepare_spoken_text(text: str, mood: str | None = None) -> tuple[str, dict]:
 
     settings = resolve_mood_speech(mood)
     spoken = _apply_spoken_style(sanitized, settings.get("spoken_style", "none"))
-    spoken = _maybe_prepend_cat_sound(spoken)
+    spoken = _maybe_prepend_cat_sound(spoken, source_text=sanitized)
     return spoken, settings
 
 

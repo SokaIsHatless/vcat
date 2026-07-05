@@ -46,6 +46,11 @@ class VoiceRequest(BaseModel):
     voice: str
 
 
+class SpeakRequest(BaseModel):
+    reply: str
+    mood: str | None = None
+
+
 @app.get("/")
 def health():
     return {"status": "ok"}
@@ -294,6 +299,13 @@ def _with_audio_url(result: dict) -> dict:
     if _try_generate_tts(result.get("reply", ""), mood=result.get("mood")):
         result["audio_url"] = AUDIO_LATEST_URL
     return result
+
+
+@app.post("/speak")
+def speak(body: SpeakRequest):
+    """Generate TTS for a fixed reply (e.g. timer completion) using the same pipeline as /command."""
+    result = {"reply": body.reply, "mood": body.mood or "idle"}
+    return _with_audio_url(result)
 
 
 @app.post("/command")

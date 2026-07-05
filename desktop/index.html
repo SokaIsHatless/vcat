@@ -347,6 +347,32 @@
       50% { transform: rotate(10deg) translateY(-4px); }
     }
 
+    #timer-countdown {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #222;
+      pointer-events: none;
+      -webkit-app-region: no-drag;
+    }
+
+    #timer-countdown.visible {
+      display: flex;
+    }
+
+    .timer-countdown-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
     .mood-fire {
       position: absolute;
       top: 0;
@@ -1058,6 +1084,11 @@
       <p id="bubble-reply"></p>
     </div>
 
+    <div id="timer-countdown" aria-hidden="true">
+      <span class="timer-countdown-icon" aria-hidden="true">⏳</span>
+      <span id="timer-countdown-text">25:00</span>
+    </div>
+
     <div id="memory-panel">
       <div class="memory-header">
         <h2>What your cat knows</h2>
@@ -1116,6 +1147,7 @@
   <script type="module" src="cat-photo.mjs"></script>
   <script>
     const API_URL = 'http://localhost:8000/command';
+    const SPEAK_URL = 'http://localhost:8000/speak';
     const MEMORY_URL = 'http://localhost:8000/memory';
     const HAS_CAT_URL = 'http://localhost:8000/has_cat';
     const DELETE_CAT_URL = 'http://localhost:8000/cat';
@@ -1199,6 +1231,8 @@
     const catWrap = document.getElementById('cat-wrap');
     const moodOverlay = document.getElementById('mood-overlay');
     const timerOverlay = document.getElementById('timer-overlay');
+    const timerCountdown = document.getElementById('timer-countdown');
+    const timerCountdownText = document.getElementById('timer-countdown-text');
     const backdrop = document.getElementById('backdrop');
     const speechBubble = document.getElementById('speech-bubble');
     const bubbleUserText = document.getElementById('bubble-user-text');
@@ -1246,7 +1280,8 @@
     let moodResetTimer = null;
     let overlayHideTimer = null;
     let activeOverlayKind = null;
-    let focusTimerTimeout = null;
+    let focusTimerInterval = null;
+    let focusTimerEndAt = 0;
     const TIMER_BREAK_MESSAGE = "Break time. You've earned exactly four minutes of scrolling.";
     let launchGreetingId = 0;
     const DRAG_THRESHOLD = 5;
@@ -1300,14 +1335,38 @@
       });
     }
 
-    function clearFocusTimer() {
-      if (focusTimerTimeout !== null) {
-        clearTimeout(focusTimerTimeout);
-        focusTimerTimeout = null;
+    function formatTimerRemaining(totalSeconds) {
+      const seconds = Math.max(0, totalSeconds);
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+      return `${minutes}:${String(remainder).padStart(2, '0')}`;
+    }
+
+    function showTimerCountdown() {
+      timerCountdown.classList.add('visible');
+      timerCountdown.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideTimerCountdown() {
+      timerCountdown.classList.remove('visible');
+      timerCountdown.setAttribute('aria-hidden', 'true');
+    }
+
+    function stopFocusTimerUI() {
+      if (focusTimerInterval !== null) {
+        clearInterval(focusTimerInterval);
+        focusTimerInterval = null;
       }
+      focusTimerEndAt = 0;
+      hideTimerCountdown();
       timerOverlay.classList.remove('visible');
       timerOverlay.setAttribute('aria-hidden', 'true');
       timerOverlay.innerHTML = '';
+    }
+
+    function clearFocusTimer() {
+      stopFocusTimerUI();
+      syncWindowSize();
     }
 
     function showTimerOverlay() {
@@ -1316,27 +1375,51 @@
       timerOverlay.setAttribute('aria-hidden', 'false');
     }
 
+    function tickFocusTimer() {
+      const remainingSeconds = Math.ceil((focusTimerEndAt - Date.now()) / 1000);
+      if (remainingSeconds <= 0) {
+        stopFocusTimerUI();
+        onFocusTimerComplete();
+        return;
+      }
+      timerCountdownText.textContent = formatTimerRemaining(remainingSeconds);
+    }
+
     function startFocusTimer(minutes) {
       const duration = Math.max(1, Math.round(Number(minutes) || 25));
-      clearFocusTimer();
+      stopFocusTimerUI();
+      focusTimerEndAt = Date.now() + duration * 60 * 1000;
       showTimerOverlay();
+      showTimerCountdown();
+      tickFocusTimer();
+      focusTimerInterval = setInterval(tickFocusTimer, 1000);
       setMood('listening', 'timer-start');
-      focusTimerTimeout = setTimeout(() => {
-        focusTimerTimeout = null;
-        onFocusTimerComplete();
-      }, duration * 60 * 1000);
+      syncWindowSize();
       console.log(`[timer] started for ${duration} minute(s)`);
     }
 
-    function onFocusTimerComplete() {
-      timerOverlay.classList.remove('visible');
-      timerOverlay.setAttribute('aria-hidden', 'true');
-      timerOverlay.innerHTML = '';
+    async function onFocusTimerComplete() {
       cat.classList.add('cat-pop');
       setTimeout(() => cat.classList.remove('cat-pop'), 650);
       window.catWindow.center();
-      setMood('happy', 'timer-complete');
-      showReplyBubble(TIMER_BREAK_MESSAGE);
+      stopReplyAudio();
+
+      try {
+        const data = await fetchSpokenReply(TIMER_BREAK_MESSAGE, 'happy');
+        deliverCatReply({
+          reply: data.reply || TIMER_BREAK_MESSAGE,
+          mood: data.mood || 'happy',
+          audioUrl: data.audio_url,
+        });
+      } catch (error) {
+        console.error('Timer TTS error:', error);
+        deliverCatReply({
+          reply: TIMER_BREAK_MESSAGE,
+          mood: 'happy',
+          audioUrl: null,
+        });
+      }
+
       syncWindowSize();
       console.log('[timer] complete');
     }
@@ -1500,6 +1583,26 @@
       }
 
       setMood(replyMood, 'backend-reply');
+    }
+
+    function deliverCatReply({ reply, mood, audioUrl }) {
+      applyReplyMood(mood);
+      showReplyBubble(reply);
+      if (audioUrl) {
+        playReplyAudio(audioUrl);
+      }
+    }
+
+    async function fetchSpokenReply(reply, mood) {
+      const response = await fetch(SPEAK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply, mood }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return response.json();
     }
 
     function setSubmitting(submitting) {
@@ -1700,6 +1803,15 @@
       syncWindowSize();
     }
 
+    function closeHistoryPanel({ keepBackdrop = false } = {}) {
+      historyOpen = false;
+      historyPanel.classList.remove('open');
+      if (!keepBackdrop && !memoryOpen && !commandOpen) {
+        backdrop.classList.remove('open');
+      }
+      syncWindowSize();
+    }
+
     function openHistoryPanel() {
       if (!isCatReady() || isThinking) return;
 
@@ -1713,22 +1825,13 @@
       }
 
       if (memoryOpen) {
-        closeMemoryPanel();
+        closeMemoryPanel({ keepBackdrop: true });
       }
 
       historyOpen = true;
       historyPanel.classList.add('open');
       backdrop.classList.add('open');
       renderSessionHistory();
-      syncWindowSize();
-    }
-
-    function closeHistoryPanel() {
-      historyOpen = false;
-      historyPanel.classList.remove('open');
-      if (!memoryOpen && !commandOpen) {
-        backdrop.classList.remove('open');
-      }
       syncWindowSize();
     }
 
@@ -1931,6 +2034,10 @@
         closeCommandPanel();
       }
 
+      if (historyOpen) {
+        closeHistoryPanel({ keepBackdrop: true });
+      }
+
       memoryOpen = true;
       memoryPanel.classList.add('open');
       backdrop.classList.add('open');
@@ -1948,10 +2055,10 @@
       }
     }
 
-    function closeMemoryPanel() {
+    function closeMemoryPanel({ keepBackdrop = false } = {}) {
       memoryOpen = false;
       memoryPanel.classList.remove('open');
-      if (!historyOpen && !commandOpen) {
+      if (!keepBackdrop && !historyOpen && !commandOpen) {
         backdrop.classList.remove('open');
       }
       memoryList.innerHTML = '';
@@ -2272,7 +2379,6 @@
 
         if (requestId !== activeRequestId) return;
 
-        applyReplyMood(data.mood);
         const toolsUsed = Array.isArray(data.tools_used) ? data.tools_used : [];
         if (toolsUsed.includes('play_song')) {
           showMoodOverlay('music');
@@ -2288,10 +2394,11 @@
         }
         const reply = data.reply || '...';
         addToSessionHistory(text, reply);
-        showReplyBubble(reply);
-        if (data.audio_url) {
-          playReplyAudio(data.audio_url);
-        }
+        deliverCatReply({
+          reply,
+          mood: data.mood,
+          audioUrl: data.audio_url,
+        });
       } catch (error) {
         console.error('Backend error:', error);
 
