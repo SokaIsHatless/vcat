@@ -1548,6 +1548,7 @@
     let bubbleHideTimer = null;
     let bubbleAudioWatchdogTimer = null;
     let bubbleAudioHidePending = false;
+    let bubblePointerInside = false;
     let replyAudioGeneration = 0;
     let thinkingDotsTimer = null;
     let activeRequestId = 0;
@@ -2032,13 +2033,40 @@
     function scheduleBubbleFallbackHide(text, ms) {
       bubbleAudioHidePending = false;
       clearBubbleAudioWatchdog();
-      startBubbleHideTimer(ms ?? computeBubbleHideMs(text));
+      scheduleBubbleHide(ms ?? computeBubbleHideMs(text));
     }
 
     function scheduleBubbleHideAfterAudio() {
       bubbleAudioHidePending = false;
       clearBubbleAudioWatchdog();
-      startBubbleHideTimer(BUBBLE_POST_AUDIO_HIDE_MS);
+      scheduleBubbleHide(BUBBLE_POST_AUDIO_HIDE_MS);
+    }
+
+    function canScheduleBubbleHide() {
+      return bubbleVisible && !isThinking && !bubblePointerInside;
+    }
+
+    function isBubbleSpeechBlockingHide() {
+      return bubbleAudioHidePending && isReplyAudioPlaying();
+    }
+
+    function scheduleBubbleHide(ms) {
+      if (!canScheduleBubbleHide() || isBubbleSpeechBlockingHide()) {
+        return;
+      }
+      startBubbleHideTimer(ms);
+    }
+
+    function onBubblePointerEnter() {
+      bubblePointerInside = true;
+      clearBubbleTimer();
+    }
+
+    function onBubblePointerLeave() {
+      bubblePointerInside = false;
+      if (!bubbleVisible || isThinking) return;
+      if (isBubbleSpeechBlockingHide()) return;
+      startBubbleHideTimer(BUBBLE_HOVER_RESUME_MS);
     }
 
     function startBubbleAudioWatchdog(fallbackText, audio) {
@@ -2994,23 +3022,6 @@
       }, ms);
     }
 
-    function resumeBubbleHideAfterHover() {
-      if (!bubbleVisible || isThinking) return;
-
-      if (bubbleAudioHidePending && isReplyAudioPlaying()) {
-        return;
-      }
-
-      if (bubbleAudioHidePending) {
-        if (currentReplyAudio && currentReplyAudio.ended) {
-          startBubbleHideTimer(BUBBLE_POST_AUDIO_HIDE_MS);
-        }
-        return;
-      }
-
-      startBubbleHideTimer(BUBBLE_HOVER_RESUME_MS);
-    }
-
     function stopThinkingDots() {
       if (thinkingDotsTimer !== null) {
         clearInterval(thinkingDotsTimer);
@@ -3034,6 +3045,7 @@
       clearBubbleScheduling();
       stopReplyAudio();
       bubbleAudioHidePending = false;
+      bubblePointerInside = false;
       clearMoodResetTimer();
       clearMoodOverlay();
       stopThinkingDots();
@@ -3072,7 +3084,7 @@
 
       if (autoHide) {
         bubbleAudioHidePending = false;
-        startBubbleHideTimer(computeBubbleHideMs(reply));
+        scheduleBubbleHide(computeBubbleHideMs(reply));
       } else {
         bubbleAudioHidePending = true;
       }
@@ -3222,11 +3234,11 @@
     });
 
     speechBubble.addEventListener('mouseenter', () => {
-      clearBubbleTimer();
+      onBubblePointerEnter();
     });
 
     speechBubble.addEventListener('mouseleave', () => {
-      resumeBubbleHideAfterHover();
+      onBubblePointerLeave();
     });
 
     document.addEventListener('keydown', (event) => {
