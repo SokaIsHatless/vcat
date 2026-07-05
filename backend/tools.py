@@ -192,3 +192,61 @@ def save_summary(content: str, title: str) -> dict:
         return {"error": str(exc)}
 
     return {"saved_to": full_path, "filename": filename}
+
+
+def start_timer(minutes: int = 25) -> dict:
+    """Start a local focus/Pomodoro timer (no external APIs). Frontend runs the countdown."""
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        minutes = 25
+    minutes = max(1, min(minutes, 240))
+    return {
+        "started": True,
+        "minutes": minutes,
+        "message": f"Timer started for {minutes} minute(s). Hourglass shows until break time.",
+    }
+
+
+RAM_ALERT_PERCENT = 85
+CPU_ALERT_PERCENT = 90
+
+
+def check_system_resources() -> dict:
+    """Read local CPU and RAM usage via psutil. No external APIs."""
+    import psutil
+
+    cpu_percent = psutil.cpu_percent(interval=0.4)
+    mem = psutil.virtual_memory()
+    ram_percent = mem.percent
+    ram_used_gb = round(mem.used / (1024 ** 3), 1)
+    ram_total_gb = round(mem.total / (1024 ** 3), 1)
+
+    high_ram = ram_percent >= RAM_ALERT_PERCENT
+    high_cpu = cpu_percent >= CPU_ALERT_PERCENT
+
+    alert = None
+    if high_ram:
+        alert = {
+            "type": "ram",
+            "overlay": "fire",
+            "ram_percent": round(ram_percent, 1),
+            "cpu_percent": round(cpu_percent, 1),
+        }
+    elif high_cpu:
+        alert = {
+            "type": "cpu",
+            "overlay": "fire",
+            "ram_percent": round(ram_percent, 1),
+            "cpu_percent": round(cpu_percent, 1),
+        }
+
+    return {
+        "cpu_percent": round(cpu_percent, 1),
+        "ram_percent": round(ram_percent, 1),
+        "ram_used_gb": ram_used_gb,
+        "ram_total_gb": ram_total_gb,
+        "high_ram": high_ram,
+        "high_cpu": high_cpu,
+        "alert": alert,
+    }
