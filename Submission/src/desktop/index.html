@@ -497,31 +497,6 @@
       background: #fff;
     }
 
-    #history-btn {
-      display: none;
-      position: absolute;
-      left: 0;
-      bottom: 32px;
-      z-index: 5;
-      padding: 4px 8px;
-      border: 1px solid #333;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.92);
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
-      pointer-events: auto;
-      -webkit-app-region: no-drag;
-    }
-
-    #history-btn.visible {
-      display: block;
-    }
-
-    #history-btn:hover {
-      background: #fff;
-    }
-
     #memory-panel {
       display: none;
       flex-direction: column;
@@ -662,115 +637,6 @@
       cursor: not-allowed;
     }
 
-    #history-panel {
-      display: none;
-      flex-direction: column;
-      width: 300px;
-      max-height: 280px;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.97);
-      border: 2px solid #333;
-      border-radius: 14px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-      pointer-events: auto;
-      -webkit-app-region: no-drag;
-      gap: 8px;
-    }
-
-    #history-panel.open {
-      display: flex;
-    }
-
-    .history-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .history-header h2 {
-      font-size: 14px;
-      font-family: system-ui, sans-serif;
-      font-weight: 700;
-      color: #222;
-    }
-
-    #history-close-btn {
-      padding: 2px 6px;
-      border: none;
-      border-radius: 6px;
-      background: transparent;
-      color: #555;
-      font-size: 16px;
-      line-height: 1;
-      cursor: pointer;
-      -webkit-app-region: no-drag;
-    }
-
-    #history-close-btn:hover {
-      background: rgba(0, 0, 0, 0.08);
-      color: #111;
-    }
-
-    #history-body {
-      flex: 1;
-      min-height: 48px;
-      overflow-y: auto;
-    }
-
-    #history-empty {
-      font-size: 13px;
-      font-family: system-ui, sans-serif;
-      color: #555;
-      font-style: italic;
-      line-height: 1.4;
-    }
-
-    #history-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .history-entry {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px 10px;
-      background: rgba(0, 0, 0, 0.04);
-      border-radius: 8px;
-    }
-
-    .history-user,
-    .history-cat {
-      font-size: 13px;
-      font-family: system-ui, sans-serif;
-      line-height: 1.35;
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-
-    .history-user {
-      color: #555;
-    }
-
-    .history-user::before {
-      content: 'You: ';
-      font-weight: 600;
-      color: #333;
-    }
-
-    .history-cat {
-      color: #111;
-    }
-
-    .history-cat::before {
-      content: 'Cat: ';
-      font-weight: 600;
-      color: #333;
-    }
-
     #upload-overlay {
       display: none;
       position: fixed;
@@ -887,17 +753,6 @@
       <button type="button" id="memory-forget-btn" disabled>Forget everything</button>
     </div>
 
-    <div id="history-panel">
-      <div class="history-header">
-        <h2>This session</h2>
-        <button type="button" id="history-close-btn" aria-label="Close history panel">✕</button>
-      </div>
-      <div id="history-body">
-        <p id="history-empty">No conversations yet this session, human.</p>
-        <ul id="history-list" hidden></ul>
-      </div>
-    </div>
-
     <div id="command-panel">
       <input
         type="text"
@@ -910,7 +765,6 @@
     </div>
 
     <div id="cat-wrap">
-      <button type="button" id="history-btn" title="This session's chat history">💬</button>
       <button type="button" id="memory-btn" title="What your cat knows about you">🧠</button>
       <button type="button" id="delete-cat-btn">Delete cat</button>
       <div id="mood-overlay" aria-hidden="true"></div>
@@ -941,7 +795,6 @@
     const BUBBLE_HIDE_PER_WORD_MS = 350;
     const BUBBLE_HIDE_MAX_MS = 15000;
     const BUBBLE_HOVER_RESUME_MS = 2500;
-    const SESSION_HISTORY_MAX = 10;
     const VALID_MOODS = [
       'idle',
       'listening',
@@ -1020,11 +873,6 @@
     const uploadStatus = document.getElementById('upload-status');
     const deleteCatBtn = document.getElementById('delete-cat-btn');
     const memoryBtn = document.getElementById('memory-btn');
-    const historyBtn = document.getElementById('history-btn');
-    const historyPanel = document.getElementById('history-panel');
-    const historyCloseBtn = document.getElementById('history-close-btn');
-    const historyEmpty = document.getElementById('history-empty');
-    const historyList = document.getElementById('history-list');
     const memoryPanel = document.getElementById('memory-panel');
     const memoryCloseBtn = document.getElementById('memory-close-btn');
     const memoryLoading = document.getElementById('memory-loading');
@@ -1035,8 +883,6 @@
 
     let commandOpen = false;
     let memoryOpen = false;
-    let historyOpen = false;
-    let sessionHistory = [];
     let bubbleVisible = false;
     let isThinking = false;
     let isUploading = false;
@@ -1248,7 +1094,6 @@
     function showUploadOverlay() {
       uploadOverlay.classList.add('visible');
       deleteCatBtn.classList.remove('visible');
-      historyBtn.classList.remove('visible');
       memoryBtn.classList.remove('visible');
       syncWindowSize();
     }
@@ -1256,78 +1101,7 @@
     function hideUploadOverlay() {
       uploadOverlay.classList.remove('visible');
       deleteCatBtn.classList.add('visible');
-      historyBtn.classList.add('visible');
       memoryBtn.classList.add('visible');
-      syncWindowSize();
-    }
-
-    function addToSessionHistory(userText, catReply) {
-      sessionHistory.push({ user: userText, cat: catReply });
-      if (sessionHistory.length > SESSION_HISTORY_MAX) {
-        sessionHistory.shift();
-      }
-      console.log('[history]', sessionHistory.length, 'entries:', sessionHistory);
-      if (historyOpen) {
-        renderSessionHistory();
-      }
-    }
-
-    function renderSessionHistory() {
-      historyList.innerHTML = '';
-      const hasEntries = sessionHistory.length > 0;
-
-      historyEmpty.hidden = hasEntries;
-      historyList.hidden = !hasEntries;
-
-      [...sessionHistory].reverse().forEach((entry) => {
-        const row = document.createElement('li');
-        row.className = 'history-entry';
-
-        const userLine = document.createElement('p');
-        userLine.className = 'history-user';
-        userLine.textContent = entry.user;
-
-        const catLine = document.createElement('p');
-        catLine.className = 'history-cat';
-        catLine.textContent = entry.cat;
-
-        row.appendChild(userLine);
-        row.appendChild(catLine);
-        historyList.appendChild(row);
-      });
-
-      syncWindowSize();
-    }
-
-    function openHistoryPanel() {
-      if (!isCatReady() || isThinking) return;
-
-      if (historyOpen) {
-        closeHistoryPanel();
-        return;
-      }
-
-      if (commandOpen) {
-        closeCommandPanel();
-      }
-
-      if (memoryOpen) {
-        closeMemoryPanel();
-      }
-
-      historyOpen = true;
-      historyPanel.classList.add('open');
-      backdrop.classList.add('open');
-      renderSessionHistory();
-      syncWindowSize();
-    }
-
-    function closeHistoryPanel() {
-      historyOpen = false;
-      historyPanel.classList.remove('open');
-      if (!memoryOpen && !commandOpen) {
-        backdrop.classList.remove('open');
-      }
       syncWindowSize();
     }
 
@@ -1427,10 +1201,6 @@
 
       if (memoryOpen) {
         closeMemoryPanel();
-      }
-
-      if (historyOpen) {
-        closeHistoryPanel();
       }
 
       showUploadOverlay();
@@ -1535,9 +1305,7 @@
     function closeMemoryPanel() {
       memoryOpen = false;
       memoryPanel.classList.remove('open');
-      if (!historyOpen && !commandOpen) {
-        backdrop.classList.remove('open');
-      }
+      backdrop.classList.remove('open');
       memoryList.innerHTML = '';
       memoryError.hidden = true;
       memoryLoading.hidden = true;
@@ -1662,25 +1430,6 @@
         event.stopPropagation();
       });
 
-      historyBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openHistoryPanel();
-      });
-
-      historyBtn.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      });
-
-      historyCloseBtn.addEventListener('click', () => {
-        closeHistoryPanel();
-      });
-
-      historyPanel.addEventListener('mousedown', (event) => {
-        event.stopPropagation();
-      });
-
       memoryCloseBtn.addEventListener('click', () => {
         closeMemoryPanel();
       });
@@ -1711,10 +1460,6 @@
         closeMemoryPanel();
       }
 
-      if (historyOpen) {
-        closeHistoryPanel();
-      }
-
       commandOpen = true;
       backdrop.classList.add('open');
       commandPanel.classList.add('open');
@@ -1728,7 +1473,7 @@
       commandPanel.classList.remove('open');
       commandInput.value = '';
 
-      if (!memoryOpen && !historyOpen) {
+      if (!memoryOpen) {
         backdrop.classList.remove('open');
       }
 
@@ -1859,9 +1604,7 @@
         if (toolsUsed.includes('play_song')) {
           showMoodOverlay('music');
         }
-        const reply = data.reply || '...';
-        addToSessionHistory(text, reply);
-        showReplyBubble(reply);
+        showReplyBubble(data.reply || '...');
       } catch (error) {
         console.error('Backend error:', error);
 
@@ -1907,7 +1650,7 @@
     window.addEventListener('mouseup', () => {
       if (!catPointerDown) return;
 
-      if (!catDragging && !commandOpen && !memoryOpen && !historyOpen && !isThinking && isCatReady()) {
+      if (!catDragging && !commandOpen && !memoryOpen && !isThinking && isCatReady()) {
         openCommandPanel();
       }
 
@@ -1922,10 +1665,6 @@
       if (event.target !== backdrop) return;
       if (memoryOpen) {
         closeMemoryPanel();
-        return;
-      }
-      if (historyOpen) {
-        closeHistoryPanel();
         return;
       }
       if (commandOpen) {
@@ -1952,11 +1691,6 @@
 
       if (memoryOpen) {
         closeMemoryPanel();
-        return;
-      }
-
-      if (historyOpen) {
-        closeHistoryPanel();
         return;
       }
 
