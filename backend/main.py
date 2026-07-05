@@ -10,12 +10,23 @@ load_dotenv()
 import anthropic
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from agent import run_agent
+from tts import (
+    clear_voice_category,
+    generate_tts,
+    get_valid_voice_categories,
+    get_voice_category,
+    get_voice_options,
+    has_voice_category,
+    resolve_edge_voice,
+    set_voice_category,
+)
 
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
 MEMORY_FILE = os.path.join(os.path.dirname(__file__), "memory.json")
+AUDIO_LATEST_URL = "http://localhost:8000/audio/latest"
 
 app = FastAPI()
 
@@ -29,6 +40,10 @@ app.add_middleware(
 
 class CommandRequest(BaseModel):
     text: str
+
+
+class VoiceRequest(BaseModel):
+    voice: str
 
 
 @app.get("/")
@@ -205,7 +220,8 @@ def delete_cat():
     if os.path.exists(PERSONALITY_FILE):
         os.remove(PERSONALITY_FILE)
     _save_facts([])
-    print("★ CAT DELETED — personality and memory cleared")
+    clear_voice_category()
+    print("★ CAT DELETED — personality, memory, and voice cleared")
     return {"ok": True}
 
 
@@ -229,16 +245,68 @@ def delete_fact(index: int):
     return {"facts": facts}
 
 
+@app.get("/audio/latest")
+def get_latest_audio():
+    from tts import LATEST_AUDIO_PATH
+
+    if not os.path.exists(LATEST_AUDIO_PATH):
+        return JSONResponse(status_code=404, content={"error": "No audio generated yet"})
+    return FileResponse(
+        LATEST_AUDIO_PATH,
+        media_type="audio/mpeg",
+        filename="latest.mp3",
+    )
+
+
+@app.get("/voice")
+def get_voice():
+    category = get_voice_category()
+    return {
+        "voice": category,
+        "has_voice": category is not None,
+        "options": get_voice_options(),
+    }
+
+
+@app.post("/voice")
+def save_voice(body: VoiceRequest):
+    if body.voice not in get_valid_voice_categories():
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"voice must be one of: {', '.join(get_valid_voice_categories())}"},
+        )
+    set_voice_category(body.voice)
+    print(f"★ VOICE SET: {body.voice}")
+    return {"voice": body.voice}
+
+
+def _try_generate_tts(reply: str, mood: str | None = None) -> bool:
+    try:
+        generate_tts(reply, resolve_edge_voice(), mood=mood)
+        print(f"★ TTS saved latest.mp3 (mood={mood or 'idle'})")
+        return True
+    except Exception as exc:
+        print(f"★ TTS failed (non-fatal): {exc}")
+        return False
+
+
+def _with_audio_url(result: dict) -> dict:
+    if _try_generate_tts(result.get("reply", ""), mood=result.get("mood")):
+        result["audio_url"] = AUDIO_LATEST_URL
+    return result
+
+
 @app.post("/command")
 def command(body: CommandRequest):
     print(f"→ COMMAND: {body.text}")
     try:
         result = run_agent(body.text)
         print(f"← REPLY (mood={result['mood']}, tools={result['tools_used']})")
-        return result
+        return _with_audio_url(result)
     except Exception:
-        return {
+        result = {
             "reply": "Something broke, human. Even cats have limits. 🐾",
             "mood": "confused",
             "tools_used": [],
         }
+        return _with_audio_url(result)

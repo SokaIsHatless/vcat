@@ -446,6 +446,22 @@
       background: #555;
     }
 
+    #mute-btn {
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    #mute-btn:hover {
+      border-color: #666;
+      background: #fff;
+    }
+
     #delete-cat-btn {
       display: none;
       position: absolute;
@@ -850,6 +866,94 @@
       color: #a33;
       font-style: normal;
     }
+
+    #voice-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    #voice-overlay.visible {
+      display: flex;
+    }
+
+    #voice-panel {
+      width: 300px;
+      padding: 20px 18px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 2px solid #333;
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      text-align: center;
+      pointer-events: auto;
+    }
+
+    #voice-panel h1 {
+      font-size: 18px;
+      font-family: system-ui, sans-serif;
+      margin-bottom: 6px;
+    }
+
+    #voice-panel p {
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      color: #555;
+      margin-bottom: 14px;
+    }
+
+    #voice-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .voice-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 14px;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.95);
+      font-size: 16px;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      color: #222;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      -webkit-app-region: no-drag;
+    }
+
+    .voice-card:hover:not(:disabled) {
+      border-color: #333;
+      background: #fff;
+      transform: translateY(-1px);
+    }
+
+    .voice-card:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .voice-card.selected {
+      border-color: #333;
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    #voice-status {
+      min-height: 20px;
+      margin-top: 12px;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      color: #a33;
+    }
   </style>
 </head>
 <body>
@@ -862,6 +966,15 @@
         <input type="file" id="file-input" accept="image/*" hidden>
       </div>
       <p id="upload-status"></p>
+    </div>
+  </div>
+
+  <div id="voice-overlay">
+    <div id="voice-panel">
+      <h1>Choose your cat's voice</h1>
+      <p>How should your cat sound?</p>
+      <div id="voice-options"></div>
+      <p id="voice-status"></p>
     </div>
   </div>
 
@@ -906,6 +1019,7 @@
         autocomplete="off"
         spellcheck="false"
       >
+      <button type="button" id="mute-btn" aria-label="Toggle voice" title="Toggle voice">🔊</button>
       <button type="button" id="send-btn">Send</button>
     </div>
 
@@ -933,6 +1047,8 @@
     const HAS_CAT_URL = 'http://localhost:8000/has_cat';
     const DELETE_CAT_URL = 'http://localhost:8000/cat';
     const GREETING_URL = 'http://localhost:8000/greeting';
+    const VOICE_URL = 'http://localhost:8000/voice';
+    const MUTE_STORAGE_KEY = 'vcat-audio-muted';
     const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
     const LAUNCH_GREETING_PLACEHOLDER = "Well, look who's back. 🐾";
     const GREETING_FETCH_TIMEOUT_MS = 8000;
@@ -1013,8 +1129,12 @@
     const bubbleReply = document.getElementById('bubble-reply');
     const commandPanel = document.getElementById('command-panel');
     const commandInput = document.getElementById('command-input');
+    const muteBtn = document.getElementById('mute-btn');
     const sendBtn = document.getElementById('send-btn');
     const uploadOverlay = document.getElementById('upload-overlay');
+    const voiceOverlay = document.getElementById('voice-overlay');
+    const voiceOptions = document.getElementById('voice-options');
+    const voiceStatus = document.getElementById('voice-status');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const uploadStatus = document.getElementById('upload-status');
@@ -1064,6 +1184,8 @@
     };
 
     let launchCenterDone = false;
+    let voiceSelecting = false;
+    let currentReplyAudio = null;
 
     const appEl = document.getElementById('app');
 
@@ -1083,10 +1205,14 @@
     function syncWindowSize() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const overlayVisible = uploadOverlay.classList.contains('visible');
+          const uploadVisible = uploadOverlay.classList.contains('visible');
+          const voiceVisible = voiceOverlay.classList.contains('visible');
           let height;
-          if (overlayVisible) {
+          if (uploadVisible) {
             const panel = document.getElementById('upload-panel');
+            height = panel.offsetHeight + 48;
+          } else if (voiceVisible) {
+            const panel = document.getElementById('voice-panel');
             height = panel.offsetHeight + 48;
           } else {
             height = appEl.offsetHeight + WINDOW_PADDING;
@@ -1260,20 +1386,153 @@
       return window.catPhoto && window.catPhoto.isReady();
     }
 
-    function showUploadOverlay() {
-      uploadOverlay.classList.add('visible');
+    function hideMainControls() {
       deleteCatBtn.classList.remove('visible');
       historyBtn.classList.remove('visible');
       memoryBtn.classList.remove('visible');
+    }
+
+    function showMainControls() {
+      deleteCatBtn.classList.add('visible');
+      historyBtn.classList.add('visible');
+      memoryBtn.classList.add('visible');
+    }
+
+    function showUploadOverlay() {
+      uploadOverlay.classList.add('visible');
+      voiceOverlay.classList.remove('visible');
+      hideMainControls();
       syncWindowSize();
     }
 
     function hideUploadOverlay() {
       uploadOverlay.classList.remove('visible');
-      deleteCatBtn.classList.add('visible');
-      historyBtn.classList.add('visible');
-      memoryBtn.classList.add('visible');
       syncWindowSize();
+    }
+
+    async function showVoiceOverlay() {
+      uploadOverlay.classList.remove('visible');
+      voiceOverlay.classList.add('visible');
+      voiceStatus.textContent = '';
+      hideMainControls();
+      voiceOptions.innerHTML = '';
+
+      try {
+        const response = await fetch(VOICE_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const options = Array.isArray(data.options) ? data.options : [];
+        options.forEach((option) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'voice-card';
+          card.dataset.voice = option.voice;
+          card.textContent = option.label || option.voice;
+          card.addEventListener('click', () => selectVoice(option.voice));
+          voiceOptions.appendChild(card);
+        });
+      } catch (error) {
+        console.error('Voice options load error:', error);
+        voiceStatus.textContent = "Couldn't load voice options. Is the backend running on :8000?";
+      }
+
+      syncWindowSize();
+    }
+
+    function hideVoiceOverlay() {
+      voiceOverlay.classList.remove('visible');
+      syncWindowSize();
+    }
+
+    function enterMainApp() {
+      hideUploadOverlay();
+      hideVoiceOverlay();
+      showMainControls();
+      syncWindowSize();
+    }
+
+    async function fetchHasVoice() {
+      try {
+        const response = await fetch(VOICE_URL);
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data.has_voice === true;
+      } catch (error) {
+        console.warn('voice check failed:', error);
+        return false;
+      }
+    }
+
+    function stopReplyAudio() {
+      if (!currentReplyAudio) return;
+      currentReplyAudio.pause();
+      currentReplyAudio.currentTime = 0;
+      currentReplyAudio = null;
+    }
+
+    function isAudioMuted() {
+      return localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
+    }
+
+    function updateMuteButton() {
+      muteBtn.textContent = isAudioMuted() ? '🔇' : '🔊';
+      muteBtn.title = isAudioMuted() ? 'Unmute voice' : 'Mute voice';
+      muteBtn.setAttribute('aria-label', muteBtn.title);
+    }
+
+    function setAudioMuted(muted) {
+      localStorage.setItem(MUTE_STORAGE_KEY, muted ? 'true' : 'false');
+      updateMuteButton();
+      if (muted) {
+        stopReplyAudio();
+      }
+    }
+
+    function toggleMute() {
+      setAudioMuted(!isAudioMuted());
+    }
+
+    function playReplyAudio(audioUrl) {
+      if (!audioUrl || isAudioMuted()) return;
+      stopReplyAudio();
+      const audio = new Audio(`${audioUrl}?t=${Date.now()}`);
+      currentReplyAudio = audio;
+      audio.play().catch(() => {});
+    }
+
+    async function selectVoice(category) {
+      if (voiceSelecting) return;
+
+      const voiceCards = voiceOptions.querySelectorAll('.voice-card');
+      voiceSelecting = true;
+      voiceStatus.textContent = '';
+      voiceCards.forEach((card) => {
+        card.disabled = true;
+        card.classList.toggle('selected', card.dataset.voice === category);
+      });
+
+      try {
+        const response = await fetch(VOICE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voice: category }),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        enterMainApp();
+        showLaunchGreeting();
+        centerWindowOnLaunch();
+      } catch (error) {
+        console.error('Voice save error:', error);
+        voiceStatus.textContent = "Couldn't save voice. Is the backend running on :8000?";
+        voiceOptions.querySelectorAll('.voice-card').forEach((card) => {
+          card.disabled = false;
+          card.classList.remove('selected');
+        });
+      } finally {
+        voiceSelecting = false;
+      }
     }
 
     function addToSessionHistory(userText, catReply) {
@@ -1388,9 +1647,17 @@
       const displayUrl = `${cutoutUrl}${cutoutUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
       cat.src = displayUrl;
       window.catPhoto.markReady(displayUrl);
-      hideUploadOverlay();
       window.dispatchEvent(new Event('cat-layout-changed'));
-      syncWindowSize();
+
+      const hasVoice = await fetchHasVoice();
+      if (!hasVoice) {
+        showVoiceOverlay();
+        syncWindowSize();
+        centerWindowOnLaunch();
+        return;
+      }
+
+      enterMainApp();
       showLaunchGreeting();
       centerWindowOnLaunch();
     }
@@ -1427,6 +1694,7 @@
 
       launchGreetingId += 1;
       hideSpeechBubble();
+      stopReplyAudio();
       deleteCatBtn.disabled = true;
 
       try {
@@ -1616,7 +1884,8 @@
           onStatus: setUploadStatus,
           catImg: cat,
         });
-        hideUploadOverlay();
+        showVoiceOverlay();
+        centerWindowOnLaunch();
       } catch (error) {
         console.error('Cat photo error:', error);
         window.catPhoto.reset();
@@ -1725,7 +1994,7 @@
     }
 
     function openCommandPanel() {
-      if (isThinking || !isCatReady()) return;
+      if (isThinking || !isCatReady() || voiceOverlay.classList.contains('visible')) return;
 
       if (memoryOpen) {
         closeMemoryPanel();
@@ -1862,6 +2131,7 @@
       if (!text || isThinking) return;
 
       closeCommandPanel();
+      stopReplyAudio();
       setSubmitting(true);
       setMood('thinking', 'command-submit');
       showThinkingBubble(text);
@@ -1882,6 +2152,9 @@
         const reply = data.reply || '...';
         addToSessionHistory(text, reply);
         showReplyBubble(reply);
+        if (data.audio_url) {
+          playReplyAudio(data.audio_url);
+        }
       } catch (error) {
         console.error('Backend error:', error);
 
@@ -1927,7 +2200,8 @@
     window.addEventListener('mouseup', () => {
       if (!catPointerDown) return;
 
-      if (!catDragging && !commandOpen && !memoryOpen && !historyOpen && !isThinking && isCatReady()) {
+      if (!catDragging && !commandOpen && !memoryOpen && !historyOpen && !isThinking
+          && isCatReady() && !voiceOverlay.classList.contains('visible')) {
         openCommandPanel();
       }
 
@@ -1993,6 +2267,17 @@
     sendBtn.addEventListener('click', () => {
       submitCommand();
     });
+
+    muteBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleMute();
+    });
+
+    muteBtn.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
+    updateMuteButton();
 
     commandInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
