@@ -1423,6 +1423,7 @@
     const BUBBLE_HIDE_PER_WORD_MS = 350;
     const BUBBLE_HIDE_MAX_MS = 15000;
     const BUBBLE_HOVER_RESUME_MS = 2500;
+    const BUBBLE_POST_AUDIO_HIDE_MS = 400;
     const SESSION_HISTORY_MAX = 10;
     const VALID_MOODS = [
       'idle',
@@ -1545,6 +1546,9 @@
     let isThinking = false;
     let isUploading = false;
     let bubbleHideTimer = null;
+    let bubbleAudioWatchdogTimer = null;
+    let bubbleAudioHidePending = false;
+    let replyAudioGeneration = 0;
     let thinkingDotsTimer = null;
     let activeRequestId = 0;
     let catPointerDown = false;
@@ -1861,9 +1865,10 @@
 
     function deliverCatReply({ reply, mood, audioUrl }) {
       applyReplyMood(mood);
-      showReplyBubble(reply);
-      if (audioUrl) {
-        playReplyAudio(audioUrl);
+      const willPlayAudio = Boolean(audioUrl) && !isAudioMuted();
+      showReplyBubble(reply, { autoHide: !willPlayAudio });
+      if (willPlayAudio) {
+        playReplyAudio(audioUrl, reply);
       }
     }
 
@@ -1969,11 +1974,71 @@
       }
     }
 
+    function detachReplyAudioListeners(audio) {
+      if (!audio || !audio._bubbleHandlers) return;
+      const handlers = audio._bubbleHandlers;
+      audio.removeEventListener('ended', handlers.onEnded);
+      audio.removeEventListener('error', handlers.onError);
+      delete audio._bubbleHandlers;
+    }
+
     function stopReplyAudio() {
       if (!currentReplyAudio) return;
+      detachReplyAudioListeners(currentReplyAudio);
       currentReplyAudio.pause();
       currentReplyAudio.currentTime = 0;
       currentReplyAudio = null;
+      bubbleAudioHidePending = false;
+    }
+
+    function isReplyAudioPlaying() {
+      return Boolean(
+        currentReplyAudio
+        && !currentReplyAudio.paused
+        && !currentReplyAudio.ended,
+      );
+    }
+
+    function clearBubbleAudioWatchdog() {
+      if (bubbleAudioWatchdogTimer !== null) {
+        clearTimeout(bubbleAudioWatchdogTimer);
+        bubbleAudioWatchdogTimer = null;
+      }
+    }
+
+    function clearBubbleTimer() {
+      if (bubbleHideTimer !== null) {
+        clearTimeout(bubbleHideTimer);
+        bubbleHideTimer = null;
+      }
+    }
+
+    function clearBubbleScheduling() {
+      clearBubbleTimer();
+      clearBubbleAudioWatchdog();
+    }
+
+    function scheduleBubbleFallbackHide(text, ms) {
+      bubbleAudioHidePending = false;
+      clearBubbleAudioWatchdog();
+      startBubbleHideTimer(ms ?? computeBubbleHideMs(text));
+    }
+
+    function scheduleBubbleHideAfterAudio() {
+      bubbleAudioHidePending = false;
+      clearBubbleAudioWatchdog();
+      startBubbleHideTimer(BUBBLE_POST_AUDIO_HIDE_MS);
+    }
+
+    function startBubbleAudioWatchdog(fallbackText) {
+      clearBubbleAudioWatchdog();
+      bubbleAudioWatchdogTimer = setTimeout(() => {
+        bubbleAudioWatchdogTimer = null;
+        if (!bubbleVisible || !bubbleAudioHidePending) return;
+        console.warn('[audio] bubble watchdog — falling back to text-based hide');
+        stopReplyAudio();
+        scheduleBubbleFallbackHide(fallbackText);
+      }, BUBBLE_HIDE_MAX_MS);
     }
 
     function isAudioMuted() {
@@ -1990,7 +2055,12 @@
       localStorage.setItem(MUTE_STORAGE_KEY, muted ? 'true' : 'false');
       updateMuteButton();
       if (muted) {
+        const fallbackText = bubbleReply.textContent;
+        const hadSyncedBubble = bubbleVisible && bubbleAudioHidePending;
         stopReplyAudio();
+        if (hadSyncedBubble && fallbackText) {
+          scheduleBubbleFallbackHide(fallbackText);
+        }
       }
     }
 
@@ -1998,12 +2068,47 @@
       setAudioMuted(!isAudioMuted());
     }
 
-    function playReplyAudio(audioUrl) {
-      if (!audioUrl || isAudioMuted()) return;
+    function playReplyAudio(audioUrl, fallbackText = '') {
+      if (!audioUrl || isAudioMuted()) return false;
+
       stopReplyAudio();
+      clearBubbleScheduling();
+
+      const generation = ++replyAudioGeneration;
       const audio = new Audio(`${audioUrl}?t=${Date.now()}`);
       currentReplyAudio = audio;
-      audio.play().catch(() => {});
+      bubbleAudioHidePending = true;
+      startBubbleAudioWatchdog(fallbackText);
+
+      const handlers = {
+        onEnded: () => {
+          if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
+          detachReplyAudioListeners(audio);
+          currentReplyAudio = null;
+          scheduleBubbleHideAfterAudio();
+        },
+        onError: () => {
+          if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
+          console.warn('[audio] playback error — falling back to text-based hide');
+          detachReplyAudioListeners(audio);
+          currentReplyAudio = null;
+          scheduleBubbleFallbackHide(fallbackText);
+        },
+      };
+
+      audio._bubbleHandlers = handlers;
+      audio.addEventListener('ended', handlers.onEnded);
+      audio.addEventListener('error', handlers.onError);
+
+      audio.play().catch((error) => {
+        if (generation !== replyAudioGeneration || currentReplyAudio !== audio) return;
+        console.warn('[audio] play() rejected — falling back to text-based hide', error);
+        detachReplyAudioListeners(audio);
+        currentReplyAudio = null;
+        scheduleBubbleFallbackHide(fallbackText);
+      });
+
+      return true;
     }
 
     async function selectVoice(category) {
@@ -2778,13 +2883,6 @@
       syncWindowSize();
     }
 
-    function clearBubbleTimer() {
-      if (bubbleHideTimer !== null) {
-        clearTimeout(bubbleHideTimer);
-        bubbleHideTimer = null;
-      }
-    }
-
     function computeBubbleHideMs(text) {
       const words = text.split(/\s+/).filter(Boolean).length;
       return Math.min(BUBBLE_HIDE_MAX_MS, Math.max(BUBBLE_HIDE_MIN_MS, BUBBLE_HIDE_BASE_MS + words * BUBBLE_HIDE_PER_WORD_MS));
@@ -2795,6 +2893,23 @@
       bubbleHideTimer = setTimeout(() => {
         hideSpeechBubble();
       }, ms);
+    }
+
+    function resumeBubbleHideAfterHover() {
+      if (!bubbleVisible || isThinking) return;
+
+      if (bubbleAudioHidePending && isReplyAudioPlaying()) {
+        return;
+      }
+
+      if (bubbleAudioHidePending) {
+        if (currentReplyAudio && currentReplyAudio.ended) {
+          startBubbleHideTimer(BUBBLE_POST_AUDIO_HIDE_MS);
+        }
+        return;
+      }
+
+      startBubbleHideTimer(BUBBLE_HOVER_RESUME_MS);
     }
 
     function stopThinkingDots() {
@@ -2817,7 +2932,9 @@
     }
 
     function hideSpeechBubble() {
-      clearBubbleTimer();
+      clearBubbleScheduling();
+      stopReplyAudio();
+      bubbleAudioHidePending = false;
       clearMoodResetTimer();
       clearMoodOverlay();
       stopThinkingDots();
@@ -2835,7 +2952,8 @@
     }
 
     function showThinkingBubble(userText) {
-      clearBubbleTimer();
+      clearBubbleScheduling();
+      bubbleAudioHidePending = false;
       stopThinkingDots();
       bubbleUserText.style.display = 'block';
       bubbleUserText.textContent = userText;
@@ -2845,15 +2963,20 @@
       syncWindowSize();
     }
 
-    function showReplyBubble(reply) {
-      clearBubbleTimer();
+    function showReplyBubble(reply, { autoHide = true } = {}) {
+      clearBubbleScheduling();
       stopThinkingDots();
       bubbleUserText.style.display = 'none';
       bubbleReply.textContent = reply;
       speechBubble.classList.add('visible');
       bubbleVisible = true;
 
-      startBubbleHideTimer(computeBubbleHideMs(reply));
+      if (autoHide) {
+        bubbleAudioHidePending = false;
+        startBubbleHideTimer(computeBubbleHideMs(reply));
+      } else {
+        bubbleAudioHidePending = true;
+      }
 
       syncWindowSize();
     }
@@ -3004,9 +3127,7 @@
     });
 
     speechBubble.addEventListener('mouseleave', () => {
-      if (bubbleVisible && !isThinking) {
-        startBubbleHideTimer(BUBBLE_HOVER_RESUME_MS);
-      }
+      resumeBubbleHideAfterHover();
     });
 
     document.addEventListener('keydown', (event) => {
