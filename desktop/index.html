@@ -2202,6 +2202,8 @@
     }
 
     async function deleteSummaryEntry(index) {
+      if (!confirm('Delete this summary? The file will be removed.')) return;
+
       const deleteButtons = summariesList.querySelectorAll('.summary-delete-btn');
       deleteButtons.forEach((btn) => {
         btn.disabled = true;

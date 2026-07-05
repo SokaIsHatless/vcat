@@ -174,18 +174,26 @@ def play_song(track: str, artist: str = None) -> dict:
     return {"playing": f"{track_name} by {artist_name}"}
 
 
+def _summaries_dir() -> str:
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        return os.path.join(local_appdata, "vcat", "summaries")
+    return os.path.join(os.path.expanduser("~"), ".vcat", "summaries")
+
+
+def ensure_summaries_dir() -> str:
+    d = _summaries_dir()
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def save_summary(content: str, title: str) -> dict:
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title).strip()
     sanitized = re.sub(r"\s+", "_", sanitized) or "summary"
     filename = f"{sanitized}_{datetime.now().strftime('%Y-%m-%d_%H%M')}.txt"
 
-    home = os.path.expanduser("~")
-    candidates = [
-        os.path.join(os.environ.get("OneDrive", ""), "Desktop") if os.environ.get("OneDrive") else None,
-        os.path.join(home, "OneDrive", "Desktop"),
-        os.path.join(home, "Desktop"),
-    ]
-    target_dir = next((p for p in candidates if p and os.path.isdir(p)), home)
+    target_dir = _summaries_dir()
+    os.makedirs(target_dir, exist_ok=True)
     full_path = os.path.join(target_dir, filename)
 
     try:
@@ -198,6 +206,46 @@ def save_summary(content: str, title: str) -> dict:
 
     register_summary(filename, full_path, title.strip() or "Summary")
     return {"saved_to": full_path, "filename": filename}
+
+
+def delete_summary_file(path: str) -> dict:
+    base_dir = os.path.abspath(_summaries_dir())
+    target = os.path.abspath(path)
+
+    try:
+        inside = os.path.commonpath([base_dir, target]) == base_dir
+    except ValueError:
+        inside = False
+
+    if not inside:
+        return {"error": "path outside summaries folder — refusing to delete"}
+
+    try:
+        os.remove(target)
+    except FileNotFoundError:
+        return {"deleted": True}
+    except OSError as exc:
+        return {"error": str(exc)}
+
+    return {"deleted": True}
+
+
+def delete_all_summary_files() -> dict:
+    target_dir = _summaries_dir()
+    if not os.path.isdir(target_dir):
+        return {"deleted": 0}
+
+    count = 0
+    for name in os.listdir(target_dir):
+        full_path = os.path.join(target_dir, name)
+        if name.lower().endswith(".txt") and os.path.isfile(full_path):
+            try:
+                os.remove(full_path)
+                count += 1
+            except OSError:
+                pass
+
+    return {"deleted": count}
 
 
 def start_timer(minutes: int = 25) -> dict:

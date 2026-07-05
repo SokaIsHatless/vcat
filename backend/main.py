@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from agent import run_agent
 from summaries import clear_summaries, delete_summary, list_summaries
+from tools import delete_all_summary_files, delete_summary_file, ensure_summaries_dir
 from tts import (
     clear_voice_category,
     generate_tts,
@@ -37,6 +38,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    ensure_summaries_dir()
 
 
 class CommandRequest(BaseModel):
@@ -222,14 +228,16 @@ def _save_facts(facts: list[str]) -> None:
 
 
 @app.delete("/cat")
-def delete_cat():
+def delete_cat(wipe_summaries: bool = False):
     if os.path.exists(PERSONALITY_FILE):
         os.remove(PERSONALITY_FILE)
     _save_facts([])
     clear_voice_category()
-    clear_summaries()
-    print("★ CAT DELETED — personality, memory, voice, and summaries cleared")
-    return {"ok": True}
+    if wipe_summaries:
+        delete_all_summary_files()
+        clear_summaries()
+    print(f"★ CAT DELETED — personality, memory, and voice cleared (summaries wiped: {wipe_summaries})")
+    return {"status": "deleted", "wiped_summaries": wipe_summaries}
 
 
 @app.get("/memory")
@@ -259,6 +267,9 @@ def get_summaries():
 
 @app.delete("/summaries/{index}")
 def remove_summary(index: int):
+    entries = list_summaries()
+    if 0 <= index < len(entries):
+        delete_summary_file(entries[index].get("path", ""))
     return {"summaries": delete_summary(index)}
 
 
