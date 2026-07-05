@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('catWindow', {
   center: () => ipcRenderer.send('window-center'),
 });
 
+contextBridge.exposeInMainWorld('catShell', {
+  openPath: (filePath) => ipcRenderer.invoke('shell-open-path', filePath),
+});
+
 contextBridge.exposeInMainWorld('catStorage', {
   hasSavedCutout: () => ipcRenderer.invoke('cat-has-saved-cutout'),
   saveCutout: (arrayBuffer) => ipcRenderer.invoke('cat-save-cutout', arrayBuffer),

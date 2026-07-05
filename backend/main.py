@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from agent import run_agent
+from summaries import clear_summaries, delete_summary, list_summaries
 from tts import (
     clear_voice_category,
     generate_tts,
@@ -226,7 +227,8 @@ def delete_cat():
         os.remove(PERSONALITY_FILE)
     _save_facts([])
     clear_voice_category()
-    print("★ CAT DELETED — personality, memory, and voice cleared")
+    clear_summaries()
+    print("★ CAT DELETED — personality, memory, voice, and summaries cleared")
     return {"ok": True}
 
 
@@ -248,6 +250,16 @@ def delete_fact(index: int):
         facts.pop(index)
         _save_facts(facts)
     return {"facts": facts}
+
+
+@app.get("/summaries")
+def get_summaries():
+    return {"summaries": list_summaries()}
+
+
+@app.delete("/summaries/{index}")
+def remove_summary(index: int):
+    return {"summaries": delete_summary(index)}
 
 
 @app.get("/audio/latest")

@@ -6,6 +6,7 @@ const {
   Tray,
   Menu,
   nativeImage,
+  shell,
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -173,6 +174,13 @@ ipcMain.on('window-set-height', (_event, { height }) => {
 
 ipcMain.on('window-center', () => {
   positionWindowAtCenter();
+});
+
+ipcMain.handle('shell-open-path', async (_event, filePath) => {
+  if (!filePath || typeof filePath !== 'string') {
+    return 'Invalid file path';
+  }
+  return shell.openPath(filePath);
 });
 
 app.whenReady().then(() => {

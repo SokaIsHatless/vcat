@@ -636,6 +636,31 @@
       background: #fff;
     }
 
+    #summaries-btn {
+      display: none;
+      position: absolute;
+      left: 0;
+      bottom: 60px;
+      z-index: 5;
+      padding: 4px 8px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    #summaries-btn.visible {
+      display: block;
+    }
+
+    #summaries-btn:hover {
+      background: #fff;
+    }
+
     #memory-panel {
       display: none;
       flex-direction: column;
@@ -885,6 +910,130 @@
       color: #333;
     }
 
+    #summaries-panel {
+      display: none;
+      flex-direction: column;
+      width: 300px;
+      max-height: 280px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 2px solid #333;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+      pointer-events: auto;
+      -webkit-app-region: no-drag;
+      gap: 8px;
+    }
+
+    #summaries-panel.open {
+      display: flex;
+    }
+
+    .summaries-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .summaries-header h2 {
+      font-size: 14px;
+      font-family: system-ui, sans-serif;
+      font-weight: 700;
+      color: #222;
+    }
+
+    #summaries-close-btn {
+      padding: 2px 6px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #555;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    #summaries-close-btn:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: #111;
+    }
+
+    #summaries-body {
+      flex: 1;
+      min-height: 48px;
+      overflow-y: auto;
+    }
+
+    #summaries-loading,
+    #summaries-empty,
+    .summaries-error {
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      color: #555;
+      font-style: italic;
+      line-height: 1.4;
+    }
+
+    .summaries-error {
+      color: #a33;
+      font-style: normal;
+    }
+
+    #summaries-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .summary-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .summary-row:hover {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    .summary-row-text {
+      flex: 1;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      color: #222;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .summary-delete-btn {
+      flex-shrink: 0;
+      padding: 0 4px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: #888;
+      font-size: 14px;
+      line-height: 1.2;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+
+    .summary-delete-btn:hover {
+      color: #a33;
+      background: rgba(160, 50, 50, 0.1);
+    }
+
+    .summary-delete-btn:disabled {
+      opacity: 0.4;
+      cursor: wait;
+    }
+
     #upload-overlay {
       display: none;
       position: fixed;
@@ -1114,6 +1263,19 @@
       </div>
     </div>
 
+    <div id="summaries-panel">
+      <div class="summaries-header">
+        <h2>Summaries</h2>
+        <button type="button" id="summaries-close-btn" aria-label="Close summaries panel">✕</button>
+      </div>
+      <div id="summaries-body">
+        <p id="summaries-loading" hidden>Sniffing the filing cabinet...</p>
+        <p id="summaries-empty" hidden>No summaries saved yet, human.</p>
+        <p id="summaries-error" class="summaries-error" hidden></p>
+        <ul id="summaries-list" hidden></ul>
+      </div>
+    </div>
+
     <div id="command-panel">
       <input
         type="text"
@@ -1128,6 +1290,7 @@
 
     <div id="cat-wrap">
       <button type="button" id="history-btn" title="This session's chat history">💬</button>
+      <button type="button" id="summaries-btn" title="Saved summaries">📄</button>
       <button type="button" id="memory-btn" title="What your cat knows about you">🧠</button>
       <button type="button" id="delete-cat-btn">Delete cat</button>
       <div id="mood-overlay" aria-hidden="true"></div>
@@ -1149,6 +1312,7 @@
     const API_URL = 'http://localhost:8000/command';
     const SPEAK_URL = 'http://localhost:8000/speak';
     const MEMORY_URL = 'http://localhost:8000/memory';
+    const SUMMARIES_URL = 'http://localhost:8000/summaries';
     const HAS_CAT_URL = 'http://localhost:8000/has_cat';
     const DELETE_CAT_URL = 'http://localhost:8000/cat';
     const GREETING_URL = 'http://localhost:8000/greeting';
@@ -1251,6 +1415,7 @@
     const deleteCatBtn = document.getElementById('delete-cat-btn');
     const memoryBtn = document.getElementById('memory-btn');
     const historyBtn = document.getElementById('history-btn');
+    const summariesBtn = document.getElementById('summaries-btn');
     const historyPanel = document.getElementById('history-panel');
     const historyCloseBtn = document.getElementById('history-close-btn');
     const historyEmpty = document.getElementById('history-empty');
@@ -1262,10 +1427,17 @@
     const memoryError = document.getElementById('memory-error');
     const memoryList = document.getElementById('memory-list');
     const memoryForgetBtn = document.getElementById('memory-forget-btn');
+    const summariesPanel = document.getElementById('summaries-panel');
+    const summariesCloseBtn = document.getElementById('summaries-close-btn');
+    const summariesLoading = document.getElementById('summaries-loading');
+    const summariesEmpty = document.getElementById('summaries-empty');
+    const summariesError = document.getElementById('summaries-error');
+    const summariesList = document.getElementById('summaries-list');
 
     let commandOpen = false;
     let memoryOpen = false;
     let historyOpen = false;
+    let summariesOpen = false;
     let sessionHistory = [];
     let bubbleVisible = false;
     let isThinking = false;
@@ -1619,12 +1791,14 @@
     function hideMainControls() {
       deleteCatBtn.classList.remove('visible');
       historyBtn.classList.remove('visible');
+      summariesBtn.classList.remove('visible');
       memoryBtn.classList.remove('visible');
     }
 
     function showMainControls() {
       deleteCatBtn.classList.add('visible');
       historyBtn.classList.add('visible');
+      summariesBtn.classList.add('visible');
       memoryBtn.classList.add('visible');
     }
 
@@ -1806,7 +1980,7 @@
     function closeHistoryPanel({ keepBackdrop = false } = {}) {
       historyOpen = false;
       historyPanel.classList.remove('open');
-      if (!keepBackdrop && !memoryOpen && !commandOpen) {
+      if (!keepBackdrop && !memoryOpen && !summariesOpen && !commandOpen) {
         backdrop.classList.remove('open');
       }
       syncWindowSize();
@@ -1828,11 +2002,175 @@
         closeMemoryPanel({ keepBackdrop: true });
       }
 
+      if (summariesOpen) {
+        closeSummariesPanel({ keepBackdrop: true });
+      }
+
       historyOpen = true;
       historyPanel.classList.add('open');
       backdrop.classList.add('open');
       renderSessionHistory();
       syncWindowSize();
+    }
+
+    function formatSummaryLabel(title, createdAt) {
+      const date = new Date(createdAt);
+      const when = Number.isNaN(date.getTime())
+        ? ''
+        : date.toLocaleString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+      return when ? `${title} — ${when}` : title;
+    }
+
+    function showSummariesError(message) {
+      summariesError.textContent = message;
+      summariesError.hidden = false;
+    }
+
+    function clearSummariesError() {
+      summariesError.textContent = '';
+      summariesError.hidden = true;
+    }
+
+    function renderSummaries(summaries) {
+      summariesList.innerHTML = '';
+      clearSummariesError();
+
+      const items = Array.isArray(summaries) ? summaries : [];
+      const hasItems = items.length > 0;
+
+      summariesEmpty.hidden = hasItems;
+      summariesList.hidden = !hasItems;
+
+      items.forEach((entry, index) => {
+        const row = document.createElement('li');
+        row.className = 'summary-row';
+
+        const text = document.createElement('span');
+        text.className = 'summary-row-text';
+        text.textContent = formatSummaryLabel(entry.title || entry.filename || 'Summary', entry.created_at);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'summary-delete-btn';
+        deleteBtn.setAttribute('aria-label', 'Remove summary from list');
+        deleteBtn.textContent = '✕';
+        deleteBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          deleteSummaryEntry(index);
+        });
+
+        row.addEventListener('click', () => {
+          openSummaryFile(entry.path);
+        });
+
+        row.appendChild(text);
+        row.appendChild(deleteBtn);
+        summariesList.appendChild(row);
+      });
+
+      syncWindowSize();
+    }
+
+    async function fetchSummaries() {
+      const response = await fetch(SUMMARIES_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data.summaries) ? data.summaries : [];
+    }
+
+    async function openSummaryFile(filePath) {
+      if (!filePath || !window.catShell?.openPath) {
+        showSummariesError("Can't open that file from here, human.");
+        return;
+      }
+
+      clearSummariesError();
+      const result = await window.catShell.openPath(filePath);
+      if (result) {
+        showSummariesError("That file's gone, human. Deleted it, did we?");
+      }
+    }
+
+    async function deleteSummaryEntry(index) {
+      const deleteButtons = summariesList.querySelectorAll('.summary-delete-btn');
+      deleteButtons.forEach((btn) => {
+        btn.disabled = true;
+      });
+
+      try {
+        const response = await fetch(`${SUMMARIES_URL}/${index}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        renderSummaries(data.summaries);
+      } catch (error) {
+        console.error('Summary delete error:', error);
+        showSummariesError('Failed to remove that summary. Try again.');
+        deleteButtons.forEach((btn) => {
+          btn.disabled = false;
+        });
+      }
+    }
+
+    function closeSummariesPanel({ keepBackdrop = false } = {}) {
+      summariesOpen = false;
+      summariesPanel.classList.remove('open');
+      summariesLoading.hidden = true;
+      clearSummariesError();
+      if (!keepBackdrop && !memoryOpen && !historyOpen && !commandOpen) {
+        backdrop.classList.remove('open');
+      }
+      syncWindowSize();
+    }
+
+    async function openSummariesPanel() {
+      if (!isCatReady() || isThinking) return;
+
+      if (summariesOpen) {
+        closeSummariesPanel();
+        return;
+      }
+
+      if (commandOpen) {
+        closeCommandPanel();
+      }
+
+      if (memoryOpen) {
+        closeMemoryPanel({ keepBackdrop: true });
+      }
+
+      if (historyOpen) {
+        closeHistoryPanel({ keepBackdrop: true });
+      }
+
+      summariesOpen = true;
+      summariesPanel.classList.add('open');
+      backdrop.classList.add('open');
+      summariesLoading.hidden = false;
+      summariesEmpty.hidden = true;
+      summariesList.hidden = true;
+      clearSummariesError();
+      syncWindowSize();
+
+      try {
+        const summaries = await fetchSummaries();
+        summariesLoading.hidden = true;
+        renderSummaries(summaries);
+      } catch (error) {
+        console.error('Summaries fetch error:', error);
+        summariesLoading.hidden = true;
+        showSummariesError("Can't reach my summaries right now, human. 🐾");
+        syncWindowSize();
+      }
     }
 
     async function tryRestoreSavedCat() {
@@ -1952,6 +2290,10 @@
         closeHistoryPanel();
       }
 
+      if (summariesOpen) {
+        closeSummariesPanel();
+      }
+
       showUploadOverlay();
       deleteCatBtn.disabled = false;
       syncWindowSize();
@@ -2038,6 +2380,10 @@
         closeHistoryPanel({ keepBackdrop: true });
       }
 
+      if (summariesOpen) {
+        closeSummariesPanel({ keepBackdrop: true });
+      }
+
       memoryOpen = true;
       memoryPanel.classList.add('open');
       backdrop.classList.add('open');
@@ -2058,7 +2404,7 @@
     function closeMemoryPanel({ keepBackdrop = false } = {}) {
       memoryOpen = false;
       memoryPanel.classList.remove('open');
-      if (!keepBackdrop && !historyOpen && !commandOpen) {
+      if (!keepBackdrop && !historyOpen && !summariesOpen && !commandOpen) {
         backdrop.classList.remove('open');
       }
       memoryList.innerHTML = '';
@@ -2197,6 +2543,25 @@
         event.stopPropagation();
       });
 
+      summariesBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openSummariesPanel();
+      });
+
+      summariesBtn.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      summariesCloseBtn.addEventListener('click', () => {
+        closeSummariesPanel();
+      });
+
+      summariesPanel.addEventListener('mousedown', (event) => {
+        event.stopPropagation();
+      });
+
       historyCloseBtn.addEventListener('click', () => {
         closeHistoryPanel();
       });
@@ -2239,6 +2604,10 @@
         closeHistoryPanel();
       }
 
+      if (summariesOpen) {
+        closeSummariesPanel();
+      }
+
       commandOpen = true;
       backdrop.classList.add('open');
       commandPanel.classList.add('open');
@@ -2252,7 +2621,7 @@
       commandPanel.classList.remove('open');
       commandInput.value = '';
 
-      if (!memoryOpen && !historyOpen) {
+      if (!memoryOpen && !historyOpen && !summariesOpen) {
         backdrop.classList.remove('open');
       }
 
@@ -2444,7 +2813,7 @@
     window.addEventListener('mouseup', () => {
       if (!catPointerDown) return;
 
-      if (!catDragging && !commandOpen && !memoryOpen && !historyOpen && !isThinking
+      if (!catDragging && !commandOpen && !memoryOpen && !historyOpen && !summariesOpen && !isThinking
           && isCatReady() && !voiceOverlay.classList.contains('visible')) {
         openCommandPanel();
       }
@@ -2464,6 +2833,10 @@
       }
       if (historyOpen) {
         closeHistoryPanel();
+        return;
+      }
+      if (summariesOpen) {
+        closeSummariesPanel();
         return;
       }
       if (commandOpen) {
@@ -2495,6 +2868,11 @@
 
       if (historyOpen) {
         closeHistoryPanel();
+        return;
+      }
+
+      if (summariesOpen) {
+        closeSummariesPanel();
         return;
       }
 

@@ -194,6 +194,9 @@ def save_summary(content: str, title: str) -> dict:
     except OSError as exc:
         return {"error": str(exc)}
 
+    from summaries import register_summary
+
+    register_summary(filename, full_path, title.strip() or "Summary")
     return {"saved_to": full_path, "filename": filename}
 
 

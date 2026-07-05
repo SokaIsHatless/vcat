@@ -23,4 +23,5 @@ Thumbs.db
 backend/memory.json
 backend/personality.json
 backend/voice.json
+backend/summaries.json
 backend/runtime/
