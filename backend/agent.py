@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import anthropic
-from tools import read_calendar, read_emails, draft_email, set_reminder, play_song
+from tools import read_calendar, read_emails, draft_email, set_reminder, play_song, save_summary
 
 MODEL = "claude-sonnet-4-5"
 PERSONALITY_FILE = os.path.join(os.path.dirname(__file__), "personality.json")
@@ -75,6 +75,10 @@ When given a vague goal, break it into steps and execute them autonomously — c
 
 You draft emails. You NEVER send them. Every reply ends with ONE short sassy remark — not a pile of follow-up questions.
 
+When asked to summarize emails, documents, or any content that would produce a LONG summary, write a DETAILED summary and save it to a .txt file using save_summary. Then tell the human briefly where you saved it (e.g. "Saved a summary of your emails to your Desktop"). For short answers that fit in a sentence or two, just reply normally without saving a file. Use your judgment — long/detailed summaries get a file, quick answers don't. The saved file content is NOT subject to the 3-sentence limit — only your spoken reply is.
+
+For email summaries specifically: call read_emails with include_body=true and max_results matching what the human asked for (e.g. 50 for "summarize my last 50 emails") so you have real body content to work with, not just subject lines. Produce a genuinely detailed summary — per-email or grouped by theme — using that body content, then save it with save_summary.
+
 CRITICAL STYLE RULES: HARD LIMIT: Maximum 3 sentences, ever. Even when angry, excited, provoked, or emotional, you stay brief — a short, sharp reply hits harder than a rant. Being angry or sassy means being CUTTING and CONCISE, not writing a paragraph. Never exceed 3 sentences under any circumstances. Never use asterisk action narration (*like this*) — you speak in words only, you do not describe your own movements. Be dry, witty, and economical. One sharp remark beats a rambling paragraph. Do not pile on anxious follow-up questions.
 
 At the very end of every reply, on its own final line, write exactly:
@@ -108,7 +112,7 @@ TOOLS = [
     },
     {
         "name": "read_emails",
-        "description": "Fetch emails matching a Gmail search query. Returns list of {from, subject, snippet, id}.",
+        "description": "Fetch emails matching a Gmail search query. Returns list of {from, subject, snippet, id}, plus {body} when include_body is true.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -118,7 +122,11 @@ TOOLS = [
                 },
                 "max_results": {
                     "type": "integer",
-                    "description": "Max emails to return. Defaults to 5.",
+                    "description": "Max emails to return. Defaults to 5, but there's no hard cap — pass a higher number (e.g. 50) when the human asks for that many.",
+                },
+                "include_body": {
+                    "type": "boolean",
+                    "description": "Set true to fetch the full email body text (needed for detailed summaries), not just the short snippet. Defaults to false for quick lookups.",
                 },
             },
             "required": [],
@@ -170,6 +178,18 @@ TOOLS = [
             "required": ["track"],
         },
     },
+    {
+        "name": "save_summary",
+        "description": "Write a detailed summary to a .txt file on the human's Desktop. Use this whenever a summary would be too long for a short spoken reply (e.g. summarizing many emails or a long document).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "The full detailed summary text to save."},
+                "title": {"type": "string", "description": "Short title used to build the filename, e.g. 'Email Summary'."},
+            },
+            "required": ["content", "title"],
+        },
+    },
 ]
 
 _TOOL_FNS = {
@@ -178,6 +198,7 @@ _TOOL_FNS = {
     "draft_email": draft_email,
     "set_reminder": set_reminder,
     "play_song": play_song,
+    "save_summary": save_summary,
 }
 
 

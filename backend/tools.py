@@ -1,4 +1,6 @@
 import base64
+import os
+import re
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
@@ -38,7 +40,36 @@ def read_calendar(date: str = None) -> list[dict]:
     ]
 
 
-def read_emails(query: str = "is:unread", max_results: int = 5) -> list[dict]:
+def _extract_body(payload: dict) -> str:
+    def find(part: dict, mime_target: str) -> str | None:
+        if part.get("mimeType") == mime_target and part.get("body", {}).get("data"):
+            return part["body"]["data"]
+        for sub in part.get("parts", []) or []:
+            found = find(sub, mime_target)
+            if found:
+                return found
+        return None
+
+    data = find(payload, "text/plain")
+    is_html = False
+    if not data:
+        data = find(payload, "text/html")
+        is_html = data is not None
+    if not data:
+        return ""
+
+    text = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+    if is_html:
+        text = re.sub(r"<[^>]+>", " ", text)
+    text = text.strip()
+
+    limit = 3000
+    if len(text) > limit:
+        text = text[:limit] + "... [truncated]"
+    return text
+
+
+def read_emails(query: str = "is:unread", max_results: int = 5, include_body: bool = False) -> list[dict]:
     creds = get_credentials()
     gmail = build("gmail", "v1", credentials=creds)
 
@@ -49,19 +80,27 @@ def read_emails(query: str = "is:unread", max_results: int = 5) -> list[dict]:
 
     emails = []
     for msg in messages:
-        detail = gmail.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="metadata",
-            metadataHeaders=["From", "Subject"],
-        ).execute()
+        if include_body:
+            detail = gmail.users().messages().get(
+                userId="me", id=msg["id"], format="full",
+            ).execute()
+        else:
+            detail = gmail.users().messages().get(
+                userId="me",
+                id=msg["id"],
+                format="metadata",
+                metadataHeaders=["From", "Subject"],
+            ).execute()
         headers = {h["name"]: h["value"] for h in detail["payload"]["headers"]}
-        emails.append({
+        email = {
             "from": headers.get("From", ""),
             "subject": headers.get("Subject", ""),
             "snippet": detail.get("snippet", ""),
             "id": msg["id"],
-        })
+        }
+        if include_body:
+            email["body"] = _extract_body(detail["payload"])
+        emails.append(email)
 
     return emails
 
@@ -130,3 +169,26 @@ def play_song(track: str, artist: str = None) -> dict:
         return {"error": f"couldn't start playback: {exc}"}
 
     return {"playing": f"{track_name} by {artist_name}"}
+
+
+def save_summary(content: str, title: str) -> dict:
+    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title).strip()
+    sanitized = re.sub(r"\s+", "_", sanitized) or "summary"
+    filename = f"{sanitized}_{datetime.now().strftime('%Y-%m-%d_%H%M')}.txt"
+
+    home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(os.environ.get("OneDrive", ""), "Desktop") if os.environ.get("OneDrive") else None,
+        os.path.join(home, "OneDrive", "Desktop"),
+        os.path.join(home, "Desktop"),
+    ]
+    target_dir = next((p for p in candidates if p and os.path.isdir(p)), home)
+    full_path = os.path.join(target_dir, filename)
+
+    try:
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except OSError as exc:
+        return {"error": str(exc)}
+
+    return {"saved_to": full_path, "filename": filename}
