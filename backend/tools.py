@@ -1,9 +1,10 @@
 import base64
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import feedparser
 import requests
@@ -16,32 +17,53 @@ from app_finder import open_application
 
 
 def read_calendar(date: str = None) -> list[dict]:
-    # Day boundaries are UTC midnight, so events near IST midnight may appear
-    # on the wrong day. Will fix with proper IST offset when needed.
+    tz = ZoneInfo("Asia/Kolkata")
     if date is None:
-        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    time_min = f"{date}T00:00:00Z"
-    time_max = f"{date}T23:59:59Z"
+        day = datetime.now(tz).date()
+    else:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+
+    start_of_day = datetime.combine(day, datetime.min.time(), tzinfo=tz)
+    end_of_day = start_of_day + timedelta(days=1)
+    time_min = start_of_day.isoformat()
+    time_max = end_of_day.isoformat()
 
     creds = get_credentials()
     cal = build("calendar", "v3", credentials=creds)
-    items = cal.events().list(
-        calendarId="primary",
-        timeMin=time_min,
-        timeMax=time_max,
-        singleEvents=True,
-        orderBy="startTime",
-    ).execute().get("items", [])
 
-    return [
-        {
-            "summary": e.get("summary", "(no title)"),
-            "start": e["start"].get("dateTime", e["start"].get("date")),
-            "end": e["end"].get("dateTime", e["end"].get("date")),
-            "attendees": [a["email"] for a in e.get("attendees", [])],
-        }
-        for e in items
-    ]
+    try:
+        calendars = cal.calendarList().list().execute().get("items", [])
+    except Exception:
+        calendars = [{"id": "primary", "summary": "Calendar"}]
+    if not calendars:
+        calendars = [{"id": "primary", "summary": "Calendar"}]
+
+    events = []
+    for entry in calendars:
+        cal_id = entry.get("id", "primary")
+        cal_name = entry.get("summary", cal_id)
+        try:
+            items = cal.events().list(
+                calendarId=cal_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                singleEvents=True,
+                orderBy="startTime",
+            ).execute().get("items", [])
+        except Exception:
+            continue
+
+        for e in items:
+            events.append({
+                "summary": e.get("summary", "(no title)"),
+                "start": e["start"].get("dateTime", e["start"].get("date")),
+                "end": e["end"].get("dateTime", e["end"].get("date")),
+                "attendees": [a["email"] for a in e.get("attendees", [])],
+                "calendar": cal_name,
+            })
+
+    events.sort(key=lambda e: e["start"])
+    return events[:30]
 
 
 def _extract_body(payload: dict) -> str:
