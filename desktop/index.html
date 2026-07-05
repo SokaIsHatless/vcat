@@ -1063,7 +1063,22 @@
       idle: null,
     };
 
+    let launchCenterDone = false;
+
     const appEl = document.getElementById('app');
+
+    function centerWindowOnLaunch() {
+      if (launchCenterDone) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (launchCenterDone) return;
+            window.catWindow.center();
+            launchCenterDone = true;
+          }, 50);
+        });
+      });
+    }
 
     function syncWindowSize() {
       requestAnimationFrame(() => {
@@ -1356,12 +1371,16 @@
 
       if (!backendReachable || !hasLocalCutout || !hasBackendCat) {
         showUploadOverlay();
+        syncWindowSize();
+        centerWindowOnLaunch();
         return;
       }
 
       const cutoutUrl = await window.catStorage.getCutoutUrl();
       if (!cutoutUrl) {
         showUploadOverlay();
+        syncWindowSize();
+        centerWindowOnLaunch();
         return;
       }
 
@@ -1373,6 +1392,7 @@
       window.dispatchEvent(new Event('cat-layout-changed'));
       syncWindowSize();
       showLaunchGreeting();
+      centerWindowOnLaunch();
     }
 
     function showLaunchGreeting() {

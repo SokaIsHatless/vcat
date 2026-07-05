@@ -30,11 +30,8 @@ function getTrayIcon() {
   return icon.resize({ width: 16, height: 16 });
 }
 
-function centerCat() {
+function positionWindowAtCenter() {
   if (!mainWindow) return;
-
-  mainWindow.show();
-  mainWindow.moveTop();
 
   const { workArea } = screen.getPrimaryDisplay();
   const { width: w, height: h } = mainWindow.getBounds();
@@ -42,6 +39,14 @@ function centerCat() {
   const centerY = Math.round(workArea.y + (workArea.height - h) / 2);
 
   mainWindow.setPosition(centerX, centerY);
+}
+
+function centerCat() {
+  if (!mainWindow) return;
+
+  mainWindow.show();
+  mainWindow.moveTop();
+  positionWindowAtCenter();
 
   catVisible = true;
   rebuildTrayMenu();
@@ -164,6 +169,10 @@ ipcMain.on('window-set-height', (_event, { height }) => {
   const [x, y] = mainWindow.getPosition();
   mainWindow.setContentSize(WINDOW_WIDTH, newHeight);
   mainWindow.setPosition(x, y - delta);
+});
+
+ipcMain.on('window-center', () => {
+  positionWindowAtCenter();
 });
 
 app.whenReady().then(() => {
