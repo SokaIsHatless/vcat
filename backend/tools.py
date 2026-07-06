@@ -271,17 +271,37 @@ def delete_all_summary_files() -> dict:
     return {"deleted": count}
 
 
-def start_timer(minutes: int = 25) -> dict:
+def _format_duration(total_seconds: int) -> str:
+    minutes, seconds = divmod(total_seconds, 60)
+    parts = []
+    if minutes:
+        parts.append(f"{minutes} minute(s)")
+    if seconds:
+        parts.append(f"{seconds} second(s)")
+    return " ".join(parts)
+
+
+def start_timer(minutes: int = 0, seconds: int = 0) -> dict:
     """Start a local focus/Pomodoro timer (no external APIs). Frontend runs the countdown."""
     try:
         minutes = int(minutes)
     except (TypeError, ValueError):
-        minutes = 25
-    minutes = max(1, min(minutes, 240))
+        minutes = 0
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError):
+        seconds = 0
+
+    total_seconds = minutes * 60 + seconds
+    if total_seconds <= 0:
+        total_seconds = 25 * 60
+    total_seconds = max(5, min(total_seconds, 14400))
+
     return {
         "started": True,
-        "minutes": minutes,
-        "message": f"Timer started for {minutes} minute(s). Hourglass shows until break time.",
+        "minutes": total_seconds / 60,
+        "seconds": total_seconds,
+        "message": f"Timer started for {_format_duration(total_seconds)}. Hourglass shows until break time.",
     }
 
 

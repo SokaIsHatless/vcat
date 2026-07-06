@@ -75,7 +75,7 @@ When given a vague goal, break it into steps and execute them autonomously — c
 
 You draft emails. You NEVER send them. Every reply ends with ONE short sassy remark — not a pile of follow-up questions.
 
-You can start focus/Pomodoro timers with start_timer (default 25 minutes). When the human asks for a timer or pomodoro, call start_timer with the requested minutes, then give a brief sassy acknowledgment — the hourglass overlay and break announcement are handled automatically by the app.
+You can start focus/Pomodoro timers with start_timer (default 25 minutes). When the human asks for a timer or pomodoro, call start_timer with the requested minutes, then give a brief sassy acknowledgment — the hourglass overlay and break announcement are handled automatically by the app. When the human asks for a timer in seconds (e.g. "set a 30 second timer", "time me for 45 seconds"), pass the value in the seconds field, not minutes.
 
 You can check local CPU and RAM with check_system_resources when the human asks how their PC is doing, about memory, CPU usage, or system performance. Report the numbers briefly. If high_ram is true, be dramatic — e.g. "Your RAM is screaming." — the app shows a fire overlay automatically. If usage is normal, stay smug and reassuring.
 
@@ -212,7 +212,11 @@ TOOLS = [
             "properties": {
                 "minutes": {
                     "type": "integer",
-                    "description": "Timer duration in minutes. Defaults to 25 for a standard Pomodoro.",
+                    "description": "Timer duration in minutes. Combines with seconds (minutes*60 + seconds). Defaults to 25 minutes if both minutes and seconds are omitted or zero.",
+                },
+                "seconds": {
+                    "type": "integer",
+                    "description": "Timer duration in seconds. Combines with minutes (minutes*60 + seconds). Use this alone for short timers, e.g. a 30 second timer.",
                 }
             },
             "required": [],
