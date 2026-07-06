@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cat Overlord</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap">
   <style>
     * {
       margin: 0;
@@ -23,6 +27,7 @@
       align-items: flex-end;
       justify-content: center;
       pointer-events: none;
+      font-family: 'Nunito', system-ui, -apple-system, sans-serif;
     }
 
     #backdrop {
@@ -104,7 +109,6 @@
 
     #bubble-user-text {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       margin-bottom: 6px;
       overflow-wrap: break-word;
@@ -119,7 +123,6 @@
 
     #bubble-reply {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       color: #111;
       overflow-wrap: break-word;
       word-break: break-word;
@@ -225,7 +228,6 @@
       font-size: 22px;
       font-weight: 700;
       color: #4a4a5c;
-      font-family: system-ui, sans-serif;
       text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
       animation: q-float 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     }
@@ -261,7 +263,6 @@
     .mood-heart {
       position: absolute;
       color: #e85d75;
-      font-family: system-ui, sans-serif;
       text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
       animation: heart-rise 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
@@ -519,7 +520,6 @@
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       outline: none;
       -webkit-app-region: no-drag;
     }
@@ -535,13 +535,46 @@
       background: #333;
       color: #fff;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       cursor: pointer;
       -webkit-app-region: no-drag;
     }
 
     #send-btn:hover:not(:disabled) {
       background: #555;
+    }
+
+    #volume-control {
+      position: relative;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    #volume-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      pointer-events: auto;
+      z-index: 10;
+    }
+
+    #volume-popover.open {
+      display: block;
+    }
+
+    #volume-slider {
+      width: 120px;
+      height: 4px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: #333;
+      -webkit-app-region: no-drag;
     }
 
     #mute-btn {
@@ -572,7 +605,6 @@
       background: rgba(255, 240, 240, 0.92);
       color: #922;
       font-size: 11px;
-      font-family: system-ui, sans-serif;
       cursor: pointer;
       pointer-events: auto;
       -webkit-app-region: no-drag;
@@ -689,7 +721,6 @@
 
     .memory-header h2 {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       font-weight: 700;
       color: #222;
     }
@@ -721,7 +752,6 @@
     #memory-empty,
     .memory-error {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       font-style: italic;
       line-height: 1.4;
@@ -751,7 +781,6 @@
     .memory-fact-text {
       flex: 1;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #222;
       line-height: 1.35;
       word-break: break-word;
@@ -787,7 +816,6 @@
       background: rgba(255, 240, 240, 0.95);
       color: #922;
       font-size: 12px;
-      font-family: system-ui, sans-serif;
       cursor: pointer;
       -webkit-app-region: no-drag;
     }
@@ -829,7 +857,6 @@
 
     .history-header h2 {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       font-weight: 700;
       color: #222;
     }
@@ -859,7 +886,6 @@
 
     #history-empty {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       font-style: italic;
       line-height: 1.4;
@@ -884,7 +910,6 @@
     .history-user,
     .history-cat {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       line-height: 1.35;
       word-break: break-word;
       white-space: pre-wrap;
@@ -938,7 +963,6 @@
 
     .summaries-header h2 {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       font-weight: 700;
       color: #222;
     }
@@ -970,7 +994,6 @@
     #summaries-empty,
     .summaries-error {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       font-style: italic;
       line-height: 1.4;
@@ -1005,7 +1028,6 @@
     .summary-row-text {
       flex: 1;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #222;
       line-height: 1.35;
       word-break: break-word;
@@ -1062,13 +1084,11 @@
 
     #upload-panel h1 {
       font-size: 18px;
-      font-family: system-ui, sans-serif;
       margin-bottom: 6px;
     }
 
     #upload-panel p {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       margin-bottom: 12px;
     }
@@ -1096,7 +1116,6 @@
 
     #drop-zone-label {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       color: #333;
     }
 
@@ -1104,7 +1123,6 @@
       min-height: 20px;
       margin-top: 12px;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #444;
       font-style: italic;
     }
@@ -1142,13 +1160,11 @@
 
     #voice-panel h1 {
       font-size: 18px;
-      font-family: system-ui, sans-serif;
       margin-bottom: 6px;
     }
 
     #voice-panel p {
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #555;
       margin-bottom: 14px;
     }
@@ -1170,7 +1186,6 @@
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.95);
       font-size: 16px;
-      font-family: system-ui, sans-serif;
       font-weight: 600;
       color: #222;
       cursor: pointer;
@@ -1198,7 +1213,6 @@
       min-height: 20px;
       margin-top: 12px;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #a33;
     }
 
@@ -1222,7 +1236,6 @@
 
     .delete-cat-dialog-text {
       font-size: 14px;
-      font-family: system-ui, sans-serif;
       font-weight: 600;
       color: #222;
       line-height: 1.4;
@@ -1233,7 +1246,6 @@
       align-items: flex-start;
       gap: 8px;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       color: #444;
       line-height: 1.4;
       cursor: pointer;
@@ -1256,7 +1268,6 @@
       padding: 6px 12px;
       border-radius: 8px;
       font-size: 13px;
-      font-family: system-ui, sans-serif;
       cursor: pointer;
       -webkit-app-region: no-drag;
     }
@@ -1381,7 +1392,12 @@
         autocomplete="off"
         spellcheck="false"
       >
-      <button type="button" id="mute-btn" aria-label="Toggle voice" title="Toggle voice">🔊</button>
+      <div id="volume-control">
+        <button type="button" id="mute-btn" aria-label="Toggle voice" title="Click to mute/unmute. Right-click for volume.">🔊</button>
+        <div id="volume-popover" role="dialog" aria-label="Volume">
+          <input type="range" id="volume-slider" min="0" max="100" value="100" aria-label="Volume">
+        </div>
+      </div>
       <button type="button" id="send-btn">Send</button>
     </div>
 
@@ -1415,6 +1431,8 @@
     const GREETING_URL = 'http://localhost:8000/greeting';
     const VOICE_URL = 'http://localhost:8000/voice';
     const MUTE_STORAGE_KEY = 'vcat-audio-muted';
+    const VOLUME_STORAGE_KEY = 'vcatVolume';
+    const VOLUME_LAST_STORAGE_KEY = 'vcatVolumeLast';
     const ERROR_MESSAGE = "Can't reach my brain right now, human. 🐾";
     const LAUNCH_GREETING_PLACEHOLDER = "Well, look who's back. 🐾";
     const GREETING_FETCH_TIMEOUT_MS = 8000;
@@ -1502,6 +1520,9 @@
     const commandPanel = document.getElementById('command-panel');
     const commandInput = document.getElementById('command-input');
     const muteBtn = document.getElementById('mute-btn');
+    const volumeControl = document.getElementById('volume-control');
+    const volumePopover = document.getElementById('volume-popover');
+    const volumeSlider = document.getElementById('volume-slider');
     const sendBtn = document.getElementById('send-btn');
     const uploadOverlay = document.getElementById('upload-overlay');
     const voiceOverlay = document.getElementById('voice-overlay');
@@ -1577,6 +1598,7 @@
 
     let launchCenterDone = false;
     let voiceSelecting = false;
+    let volumePopoverOpen = false;
     let currentReplyAudio = null;
     let currentReplyObjectUrl = null;
 
@@ -2138,20 +2160,34 @@
       });
     }
 
-    function isAudioMuted() {
-      return localStorage.getItem(MUTE_STORAGE_KEY) === 'true';
+    function getVolume() {
+      const stored = localStorage.getItem(VOLUME_STORAGE_KEY);
+      if (stored !== null) {
+        const parsed = Number.parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+          return Math.max(0, Math.min(100, parsed));
+        }
+      }
+      if (localStorage.getItem(MUTE_STORAGE_KEY) === 'true') {
+        return 0;
+      }
+      return 100;
     }
 
-    function updateMuteButton() {
-      muteBtn.textContent = isAudioMuted() ? '🔇' : '🔊';
-      muteBtn.title = isAudioMuted() ? 'Unmute voice' : 'Mute voice';
-      muteBtn.setAttribute('aria-label', muteBtn.title);
+    function getVolumeScalar() {
+      return getVolume() / 100;
     }
 
-    function setAudioMuted(muted) {
-      localStorage.setItem(MUTE_STORAGE_KEY, muted ? 'true' : 'false');
+    function setVolume(volume) {
+      const clamped = Math.max(0, Math.min(100, Math.round(volume)));
+      localStorage.setItem(VOLUME_STORAGE_KEY, String(clamped));
+      localStorage.setItem(MUTE_STORAGE_KEY, clamped === 0 ? 'true' : 'false');
+      volumeSlider.value = String(clamped);
       updateMuteButton();
-      if (muted) {
+      if (currentReplyAudio) {
+        currentReplyAudio.volume = getVolumeScalar();
+      }
+      if (clamped === 0) {
         const fallbackText = bubbleReply.textContent;
         const hadSyncedBubble = bubbleVisible && bubbleAudioHidePending;
         stopReplyAudio();
@@ -2159,6 +2195,44 @@
           scheduleBubbleFallbackHide(fallbackText);
         }
       }
+    }
+
+    function isAudioMuted() {
+      return getVolume() === 0;
+    }
+
+    function updateMuteButton() {
+      const volume = getVolume();
+      muteBtn.textContent = volume === 0 ? '🔇' : (volume <= 70 ? '🔉' : '🔊');
+      const title = volume === 0
+        ? 'Unmute voice (click). Right-click for volume.'
+        : `Volume ${volume}% (click to mute). Right-click for volume.`;
+      muteBtn.title = title;
+      muteBtn.setAttribute('aria-label', title);
+      volumeSlider.value = String(volume);
+    }
+
+    function setAudioMuted(muted) {
+      if (muted) {
+        if (getVolume() > 0) {
+          localStorage.setItem(VOLUME_LAST_STORAGE_KEY, String(getVolume()));
+        }
+        setVolume(0);
+        return;
+      }
+      const restore = Number.parseInt(localStorage.getItem(VOLUME_LAST_STORAGE_KEY) || '100', 10);
+      setVolume(Number.isNaN(restore) || restore <= 0 ? 100 : restore);
+    }
+
+    function openVolumePopover() {
+      volumePopoverOpen = true;
+      volumePopover.classList.add('open');
+      volumeSlider.value = String(getVolume());
+    }
+
+    function closeVolumePopover() {
+      volumePopoverOpen = false;
+      volumePopover.classList.remove('open');
     }
 
     function toggleMute() {
@@ -2190,6 +2264,7 @@
         objectUrl = URL.createObjectURL(blob);
         currentReplyObjectUrl = objectUrl;
         const audio = new Audio(objectUrl);
+        audio.volume = getVolumeScalar();
         currentReplyAudio = audio;
 
         const handlers = {
@@ -2579,11 +2654,24 @@
           if (!response.ok) return null;
           return response.json();
         })
-        .then((data) => {
+        .then(async (data) => {
           if (greetingId !== launchGreetingId) return;
           const text = data && typeof data.greeting === 'string' ? data.greeting.trim() : '';
           if (!text || text === LAUNCH_GREETING_PLACEHOLDER) return;
-          showReplyBubble(text);
+
+          try {
+            stopReplyAudio();
+            const spoken = await fetchSpokenReply(text, 'happy');
+            if (greetingId !== launchGreetingId) return;
+            deliverCatReply({
+              reply: text,
+              mood: spoken.mood || 'happy',
+              audioUrl: spoken.audio_url,
+            });
+          } catch (error) {
+            console.error('Greeting TTS error:', error);
+            showReplyBubble(text);
+          }
         })
         .catch(() => {
           // Keep the placeholder greeting on failure or timeout.
@@ -3280,11 +3368,36 @@
 
     muteBtn.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (volumePopoverOpen) return;
       toggleMute();
+    });
+
+    muteBtn.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openVolumePopover();
     });
 
     muteBtn.addEventListener('mousedown', (event) => {
       event.stopPropagation();
+    });
+
+    volumeSlider.addEventListener('input', () => {
+      setVolume(Number.parseInt(volumeSlider.value, 10));
+    });
+
+    volumeSlider.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
+    volumeControl.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!volumePopoverOpen) return;
+      if (volumeControl.contains(event.target)) return;
+      closeVolumePopover();
     });
 
     updateMuteButton();
