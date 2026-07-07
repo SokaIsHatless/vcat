@@ -11,7 +11,6 @@ Built for the **#hackthekitty 2026** hackathon under the **For Developers** them
 ## Table of Contents
 
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Running the app](#running-the-app)
@@ -54,19 +53,6 @@ Built for the **#hackthekitty 2026** hackathon under the **For Developers** them
 
 For a full list of features and how they fit together, see [`documentation/project_report.md`](documentation/project_report.md).
 
----
-
-## Screenshots
-
-*(Add these before submission; leaving placeholders here so you don't forget)*
-
-- Upload screen
-- Cat with speech bubble mid-conversation
-- Memory panel showing learned facts
-- Summaries panel
-- Mood animations (happy, angry)
-
----
 
 ## Prerequisites
 
