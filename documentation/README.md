@@ -2,7 +2,7 @@
 
 *An AI desktop pet with the personality of your cat, that helps developers manage the boring parts of their day.*
 
-Cat Overlord is a floating, always-on-top Electron desktop pet powered by Anthropic's Claude Sonnet 4.5. Upload a photo of your cat, and its personality (extracted from the photo by Claude Vision) shapes every reply. Then talk to it in natural language — it can read your calendar, draft emails, summarize your inbox, play Spotify, open apps, run a Pomodoro timer, look up the weather and news, define words, analyze what's on your screen, and remember things about you across sessions.
+Cat Overlord is a floating, always-on-top Electron desktop pet powered by Anthropic's Claude Sonnet 4.5. Upload a photo of your cat, and its personality (extracted from the photo by Claude Vision) shapes every reply. Then talk to it in natural language. It can read your calendar, draft emails, summarize your inbox, play Spotify, open apps, run a Pomodoro timer, look up the weather and news, define words, analyze what's on your screen, and remember things about you across sessions.
 
 Built for the **#hackthekitty 2026** hackathon under the **For Developers** theme by team **error404**.
 
@@ -36,14 +36,14 @@ Built for the **#hackthekitty 2026** hackathon under the **For Developers** them
 - Personalized launch greeting
 
 ### Google integrations
-- **Calendar** — reads events across all your subscribed calendars, creates reminders
-- **Gmail** — reads emails, summarizes them to `.txt` files, drafts messages (never sends)
+- **Calendar**: reads events across all your subscribed calendars, creates reminders
+- **Gmail**: reads emails, summarizes them to `.txt` files, drafts messages (never sends)
 
 ### Developer tools
-- **Screen analysis** — silently captures a screenshot and describes what you're looking at, including code
-- **App launcher** — opens installed Windows apps by name, with denylist protection for system shells and admin tools
-- **Focus timer** — Pomodoro with countdown UI and TTS break announcements
-- **CPU/RAM monitoring** — a fire overlay animates when your system gets hot
+- **Screen analysis**: silently captures a screenshot and describes what you're looking at, including code
+- **App launcher**: opens installed Windows apps by name, with denylist protection for system shells and admin tools
+- **Focus timer**: Pomodoro with countdown UI and TTS break announcements
+- **CPU/RAM monitoring**: a fire overlay animates when your system gets hot
 
 ### Everything else
 - Spotify song playback on your Premium account
@@ -58,7 +58,7 @@ For a full list of features and how they fit together, see [`documentation/proje
 
 ## Screenshots
 
-*(Add these before submission — leaving placeholders here so you don't forget)*
+*(Add these before submission; leaving placeholders here so you don't forget)*
 
 - Upload screen
 - Cat with speech bubble mid-conversation
@@ -76,20 +76,20 @@ You'll need:
 
 ### Software
 - **Windows 10 or 11**
-- **Python 3.11 or newer** — [python.org](https://www.python.org/downloads/)
-- **Node.js 18 or newer** (bundled with npm) — [nodejs.org](https://nodejs.org/)
-- **Git** — [git-scm.com](https://git-scm.com/)
+- **Python 3.11 or newer**: [python.org](https://www.python.org/downloads/)
+- **Node.js 18 or newer** (bundled with npm): [nodejs.org](https://nodejs.org/)
+- **Git**: [git-scm.com](https://git-scm.com/)
 
 ### API credentials (all free tiers except Spotify)
-- **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com/). You need Claude API access.
-- **Google Cloud OAuth credentials** — for Gmail and Calendar. Setup instructions below.
-- **Spotify Developer credentials** — [developer.spotify.com](https://developer.spotify.com/). Music playback requires a **Spotify Premium** account.
+- **Anthropic API key**: [console.anthropic.com](https://console.anthropic.com/). You need Claude API access.
+- **Google Cloud OAuth credentials**: for Gmail and Calendar. Setup instructions below.
+- **Spotify Developer credentials**: [developer.spotify.com](https://developer.spotify.com/). Music playback requires a **Spotify Premium** account.
 
 ### No signup needed
-- Open-Meteo (weather) — no key
-- ip-api.com (location) — no key
-- BBC News RSS (news) — no key
-- Free Dictionary API — no key
+- Open-Meteo (weather): no key
+- ip-api.com (location): no key
+- BBC News RSS (news): no key
+- Free Dictionary API: no key
 
 ---
 
@@ -123,7 +123,7 @@ The requested scopes should be:
 ### 3. Set up Spotify credentials
 
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
-2. Set the **Redirect URI** to exactly `http://127.0.0.1:8888/callback` (not `localhost` — Spotify no longer accepts `http://localhost` for security reasons).
+2. Set the **Redirect URI** to exactly `http://127.0.0.1:8888/callback` (not `localhost`; Spotify no longer accepts `http://localhost` for security reasons).
 3. Copy the **Client ID** and **Client Secret**.
 
 ### 4. Configure environment variables
@@ -172,7 +172,7 @@ Spotify OAuth happens automatically the first time you ask the cat to play a son
 
 You'll run two processes: the backend server and the Electron desktop app.
 
-### Terminal 1 — Backend
+### Terminal 1: Backend
 
 ```bash
 cd backend
@@ -182,7 +182,7 @@ uvicorn main:app --port 8000
 
 You should see `Uvicorn running on http://127.0.0.1:8000`.
 
-### Terminal 2 — Frontend
+### Terminal 2: Frontend
 
 ```bash
 cd desktop
@@ -195,9 +195,9 @@ Your cat will appear centered on your desktop.
 
 ## How to use it
 
-1. **First launch** — you'll see an upload screen. Drop in a photo of your cat (real cats work best — the vision model rejects clearly non-cat images).
-2. **Wait for cutout** — background removal and personality generation take a few seconds.
-3. **Pick a voice** — male, female, or neutral. This drives the TTS.
+1. **First launch**: you'll see an upload screen. Drop in a photo of your cat (real cats work best; the vision model rejects clearly non-cat images).
+2. **Wait for cutout**: background removal and personality generation take a few seconds.
+3. **Pick a voice**: male, female, or neutral. This drives the TTS.
 4. **Click the cat** to open the command input.
 5. **Type a command.** Some things to try:
    - *"what's on my calendar today?"*
@@ -211,9 +211,9 @@ Your cat will appear centered on your desktop.
    - *"start a 25 minute timer"*
    - *"what's on my screen?"* (asks the cat to look at your current screen)
 6. **Try to be nice.** Insulting the cat produces different animations than complimenting it.
-7. **Look at what it learned about you** — click the memory panel button (bottom left). Delete facts you don't like.
-8. **Recall the cat** if it drifts off-screen — click the tray icon or right-click for the menu.
-9. **When you're done** — right-click the tray → Quit. The cat persists; it'll be there next launch.
+7. **Look at what it learned about you**: click the memory panel button (bottom left). Delete facts you don't like.
+8. **Recall the cat** if it drifts off-screen: click the tray icon or right-click for the menu.
+9. **When you're done**: right-click the tray → Quit. The cat persists; it'll be there next launch.
 
 ---
 
@@ -247,11 +247,11 @@ vcat/
 ```
 
 Persistent state gets created as you use the app:
-- `backend/personality.json` — cat's generated personality
-- `backend/memory.json` — durable facts learned about you
-- `backend/summaries.json` — index of saved summaries
-- `backend/voice.json` — chosen TTS voice
-- `%LOCALAPPDATA%\vcat\summaries\*.txt` — saved summary files
+- `backend/personality.json`: cat's generated personality
+- `backend/memory.json`: durable facts learned about you
+- `backend/summaries.json`: index of saved summaries
+- `backend/voice.json`: chosen TTS voice
+- `%LOCALAPPDATA%\vcat\summaries\*.txt`: saved summary files
 
 ---
 
