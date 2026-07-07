@@ -315,6 +315,45 @@ For the full security design writeup, see [`documentation/project_report.md`](do
 
 ---
 
+## Team
+
+Team **error404** built Cat Overlord for **#hackthekitty 2026**.
+
+### Soka
+
+- Built the core AI agent architecture and backend logic (`agent.py`), including the Claude tool-use loop, memory injection, mood system, and reflection pipeline
+- Developed a large portion of the FastAPI backend (`main.py`) and integrated multiple API endpoints
+- Implemented Google OAuth and Spotify OAuth authentication
+- Built the Windows application launcher (`app_finder.py`) with security guardrails (allowlist/denylist)
+- Developed and integrated weather and news services
+- Implemented email features, including reading emails, drafting emails, and calendar integration
+- Built reminder creation and persistent memory storage, including migration of summaries to AppData
+- Worked on Spotify playback integration and system resource monitoring
+- Contributed to TTS integration and backend infrastructure
+- Worked on summary generation, personality generation, and backend logic supporting the UI
+- Contributed to greeting generation, backend optimizations, and API design throughout development
+- Assisted with integration of frontend features into the backend and overall application architecture
+
+### Miss O
+
+- Designed and developed the Electron desktop application, including window management, positioning, and system tray functionality
+- Built the complete user interface (`index.html`, `preload.js`, `main.js`) and the animated virtual cat experience
+- Designed the overall application workflow and proposed most external integrations used throughout the project
+- Implemented screenshot analysis and image-processing features
+- Built the Dictionary, Timer, and most utility integrations beyond Weather and News
+- Developed the complete Text-to-Speech (TTS) system, including backend implementation, voice selection, mood-based speech modulation, mute controls, and volume management
+- Built the speech bubble system with adaptive timing, hover-to-pause behavior, scrolling, and synchronization with speech playback
+- Implemented background removal and persistent storage of uploaded cat images
+- Created mood-based animations and visual effects (hearts, music notes, sleeping, fire, question marks, anger effects, screenshot overlays, etc.)
+- Built the Memory, Chat History, and Summaries panels, including viewing, deletion, and management functionality
+- Implemented the Delete Cat workflow with optional summary cleanup
+- Developed the drag-and-drop upload flow, cat validation, voice selection, and dynamic window resizing
+- Extracted summaries into a dedicated backend module (`summaries.py`) and implemented related backend endpoints
+- Worked extensively on backend integrations, API endpoints, and feature implementation alongside the frontend
+- Contributed to personality generation, backend architecture, and integration of AI features with the desktop application
+
+---
+
 ## Acknowledgments
 
 - **Anthropic** for Claude Sonnet 4.5 and Claude Vision
