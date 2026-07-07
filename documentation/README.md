@@ -51,8 +51,9 @@ Built for the **#hackthekitty 2026** hackathon under the **For Developers** them
 - Dictionary word lookups
 - Session chat history panel, memory panel (view/delete what the cat knows), saved-summaries panel
 
-For a full list of features and how they fit together, see [`documentation/project_report.md`](documentation/project_report.md).
+For a full list of features and how they fit together, see [`documentation/project_report.pdf`](documentation/project_report.pdf).
 
+---
 
 ## Prerequisites
 
@@ -90,25 +91,62 @@ cd vcat
 
 ### 2. Set up Google Cloud credentials
 
-Cat Overlord uses OAuth to read your Gmail and Calendar. You'll create your own OAuth app so the credentials stay yours.
+Cat Overlord reads your Gmail and Calendar through Google's OAuth. You'll create your own OAuth app so the credentials stay entirely yours — nothing is shared with us. This takes about 10 minutes.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
-2. Enable the **Gmail API** and **Google Calendar API** for that project.
-3. Go to **APIs & Services → OAuth consent screen**, choose **External**, fill in the required fields, and add yourself as a test user.
-4. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
-5. Choose **Desktop app**, name it anything, and download the resulting JSON.
-6. Save that JSON as `backend/credentials.json`.
+#### 2.1 — Create a project
 
-The requested scopes should be:
-- `https://www.googleapis.com/auth/gmail.readonly`
-- `https://www.googleapis.com/auth/gmail.compose`
-- `https://www.googleapis.com/auth/calendar`
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and sign in with the Google account you want the cat to manage.
+2. At the top of the page, click the **project dropdown** (next to the "Google Cloud" logo), then click **New Project**.
+3. Give it a name (e.g. `cat-overlord`), leave the organization as-is, and click **Create**.
+4. Wait a few seconds, then make sure your new project is selected in the project dropdown before continuing.
 
-⚠️ In **Testing** mode, Google expires refresh tokens after 7 days. You'll need to re-authorize weekly (see [Troubleshooting](#troubleshooting)).
+#### 2.2 — Enable the Gmail and Calendar APIs
+
+1. In the left menu (☰), go to **APIs & Services → Library**.
+2. Search for **Gmail API**, click it, and click **Enable**.
+3. Go back to the Library, search for **Google Calendar API**, click it, and click **Enable**.
+
+#### 2.3 — Configure the OAuth consent screen (Google Auth Platform)
+
+> **Note:** Google recently moved these settings under "Google Auth Platform." If you see a "Branding," "Audience," and "Data Access" layout, you're in the right place.
+
+1. In the left menu, go to **APIs & Services → OAuth consent screen** (this opens the Google Auth Platform section). If it's your first time, click **Get Started**.
+2. **Branding / App Information:**
+   - **App name:** anything (e.g. `Cat Overlord`)
+   - **User support email:** select your email
+3. **Audience:** choose **External**.
+4. **Contact information:** enter your email address.
+5. Agree to the user-data policy if prompted, and click **Create** / **Save**.
+6. Go to the **Audience** page (left side, under Google Auth Platform). Scroll to **Test users** and click **+ Add users**. Add the Google account(s) you'll actually use with the cat (usually just your own email). Click **Save**.
+
+> ⚠️ You **must** add yourself as a test user, or Google will block the login with an "access denied" / "app not verified" error.
+
+#### 2.4 — Create the OAuth client ID
+
+1. In the left menu, go to **APIs & Services → Credentials**.
+2. Click **+ Create Credentials** at the top, then select **OAuth client ID**.
+3. For **Application type**, choose **Desktop app**.
+4. Give it any name (e.g. `cat-overlord-desktop`), then click **Create**.
+5. A dialog appears with your client ID and secret. Click **Download JSON**.
+6. Rename the downloaded file to **`credentials.json`** and place it in the **`backend/`** folder of the project (so the path is `backend/credentials.json`).
+
+#### 2.5 — Scopes (for reference)
+
+The app requests these scopes during login — you don't need to configure them manually, they're requested by the code:
+
+- `https://www.googleapis.com/auth/gmail.readonly` — read emails
+- `https://www.googleapis.com/auth/gmail.compose` — draft emails (never send)
+- `https://www.googleapis.com/auth/calendar` — read/create calendar events
+
+#### 2.6 — First-time authorization
+
+Later, when you run `python google_auth.py` (see [Running the app](#running-the-app)), a browser window opens asking you to log in and approve access. Choose the account you added as a test user. You may see a **"Google hasn't verified this app"** warning — this is expected for a personal OAuth app in Testing mode. Click **Advanced → Go to Cat Overlord (unsafe)** to proceed. A `token.json` file will be saved in `backend/`, and you're done.
+
+> ⚠️ **Refresh token expiry:** In Testing mode, Google expires OAuth refresh tokens after **7 days**. When Gmail/Calendar features stop working, re-run `python google_auth.py` to re-authorize (see [Troubleshooting](#troubleshooting)). To remove this limit entirely, you'd publish the OAuth app (move it from "Testing" to "In production" on the Audience page), though that isn't required for personal use.
 
 ### 3. Set up Spotify credentials
 
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app.
 2. Set the **Redirect URI** to exactly `http://127.0.0.1:8888/callback` (not `localhost`; Spotify no longer accepts `http://localhost` for security reasons).
 3. Copy the **Client ID** and **Client Secret**.
 
@@ -122,7 +160,7 @@ SPOTIFY_CLIENT_ID=your-spotify-client-id
 SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
 ```
 
-⚠️ **No spaces around `=`**. That format matters.
+> ⚠️ **No spaces around `=`.** That format matters.
 
 ### 5. Install backend dependencies
 
@@ -228,7 +266,7 @@ vcat/
 │   ├── package.json            # Node dependencies + scripts
 │   └── ...
 ├── documentation/
-│   └── project_report.md       # Full technical report
+│   └── project_report.pdf      # Full technical report
 └── README.md                   # This file
 ```
 
@@ -287,7 +325,7 @@ Cat Overlord was designed with the principle that an assistant with access to yo
 - **User owns memory.** Everything the cat has learned about you is inspectable and deletable through the memory panel.
 - **Least-privilege OAuth scopes.** Google scopes are limited to Gmail read/compose (not send) and Calendar. Spotify scopes are limited to playback control.
 
-For the full security design writeup, see [`documentation/project_report.md`](documentation/project_report.md).
+For the full security design writeup, see [`documentation/project_report.pdf`](documentation/project_report.pdf).
 
 ---
 
@@ -319,6 +357,7 @@ Team **error404** built Cat Overlord for **#hackthekitty 2026**.
 - Worked on summary generation, personality generation, and backend logic supporting the UI
 - Contributed to greeting generation, backend optimizations, and API design throughout development
 - Assisted with integration of frontend features into the backend and overall application architecture
+- Built the speech bubble system with adaptive timing, hover-to-pause behavior, scrolling, and synchronization with speech playback
 
 ### Oviya S
 
@@ -328,7 +367,6 @@ Team **error404** built Cat Overlord for **#hackthekitty 2026**.
 - Implemented screenshot analysis and image-processing features
 - Built the Dictionary, Timer, and most utility integrations beyond Weather and News
 - Developed the complete Text-to-Speech (TTS) system, including backend implementation, voice selection, mood-based speech modulation, mute controls, and volume management
-- Built the speech bubble system with adaptive timing, hover-to-pause behavior, scrolling, and synchronization with speech playback
 - Implemented background removal and persistent storage of uploaded cat images
 - Created mood-based animations and visual effects (hearts, music notes, sleeping, fire, question marks, anger effects, screenshot overlays, etc.)
 - Built the Memory, Chat History, and Summaries panels, including viewing, deletion, and management functionality
@@ -352,4 +390,4 @@ Team **error404** built Cat Overlord for **#hackthekitty 2026**.
 
 ## Notes for evaluators
 
-The full technical writeup, architecture diagram, testing matrix, security discussion, and reflections live in [`documentation/project_report.md`](documentation/project_report.md). This README is meant to get you running the project; the report is meant to explain what's under the hood.
+The full technical writeup, architecture diagram, testing matrix, security discussion, and reflections live in [`documentation/project_report.pdf`](documentation/project_report.pdf). This README is meant to get you running the project; the report is meant to explain what's under the hood.
