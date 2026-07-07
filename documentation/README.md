@@ -319,7 +319,7 @@ For the full security design writeup, see [`documentation/project_report.md`](do
 
 Team **error404** built Cat Overlord for **#hackthekitty 2026**.
 
-### Soka
+### Mrityunjay Krithick (Leader)
 
 - Built the core AI agent architecture and backend logic (`agent.py`), including the Claude tool-use loop, memory injection, mood system, and reflection pipeline
 - Developed a large portion of the FastAPI backend (`main.py`) and integrated multiple API endpoints
@@ -334,7 +334,7 @@ Team **error404** built Cat Overlord for **#hackthekitty 2026**.
 - Contributed to greeting generation, backend optimizations, and API design throughout development
 - Assisted with integration of frontend features into the backend and overall application architecture
 
-### Miss O
+### Oviya S
 
 - Designed and developed the Electron desktop application, including window management, positioning, and system tray functionality
 - Built the complete user interface (`index.html`, `preload.js`, `main.js`) and the animated virtual cat experience
